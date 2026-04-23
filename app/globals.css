@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --royal: #2b2dff;
+  --lima: #8dc63f;
+  --surface: #f7f8fa;
+  --ink: #0d0f1a;
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--surface);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Força tema claro em inputs nativos (selects, date-pickers, etc)
+ * mesmo quando o sistema operacional está em dark mode. */
+input,
+select,
+textarea,
+option {
+  color-scheme: light;
+}
+
+/* Scrollbar refinada */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(13, 15, 26, 0.12);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(13, 15, 26, 0.22);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Seleção */
+::selection {
+  background: rgba(43, 45, 255, 0.18);
+  color: var(--ink);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
+           transition-all duration-200 ease-smooth
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-200 focus-visible:ring-offset-2
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-royal text-white shadow-xs
+           hover:bg-royal-600 hover:shadow-pop
+           active:translate-y-px active:bg-royal-700 active:shadow-xs;
+  }
+  .btn-secondary {
+    @apply btn border border-slate-200 bg-white text-ink shadow-xs
+           hover:bg-slate-50 hover:border-slate-300
+           active:translate-y-px;
+  }
+  .btn-lima {
+    @apply btn bg-lima text-white shadow-xs
+           hover:bg-lima-600 hover:shadow-raised
+           active:translate-y-px;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-slate-600
+           hover:bg-slate-100 hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white shadow-xs
+           hover:bg-red-700 hover:shadow-raised
+           active:translate-y-px;
+  }
+  .btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg
+           text-slate-600 transition
+           hover:bg-slate-100 hover:text-ink
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-200;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2
+           text-sm font-medium text-ink shadow-xs
+           transition-all duration-200 ease-smooth
+           hover:-translate-y-0.5 hover:border-royal-200 hover:bg-royal-50 hover:shadow-raised
+           active:translate-y-0;
+  }
+  .chip-active {
+    @apply border-royal bg-royal text-white shadow-pop
+           hover:bg-royal-600 hover:border-royal-600 hover:text-white;
+  }
+
+  .card {
+    @apply rounded-2xl border border-slate-200/70 bg-white shadow-card;
+  }
+  .card-interactive {
+    @apply card transition-all duration-200 ease-smooth
+           hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-card-hover;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-ink
+           transition-all duration-150
+           placeholder:text-slate-400
+           focus:border-royal focus:outline-none focus:ring-2 focus:ring-royal-100
+           disabled:bg-slate-50 disabled:cursor-not-allowed;
+  }
+
+  /* Selects nativos: removem a seta padrão e usam uma custom
+   * coerente com o design system (chevron em SVG inline royal). */
+  select.input {
+    @apply appearance-none pr-10 bg-no-repeat;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230D0F1A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
+    background-position: right 10px center;
+    background-size: 16px;
+  }
+
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold;
+  }
+  .badge-royal {
+    @apply badge bg-royal-50 text-royal-700 ring-1 ring-inset ring-royal-100;
+  }
+  .badge-lima {
+    @apply badge bg-lima-50 text-lima-700 ring-1 ring-inset ring-lima-100;
+  }
+  .badge-amber {
+    @apply badge bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-100;
+  }
+  .badge-red {
+    @apply badge bg-red-50 text-red-700 ring-1 ring-inset ring-red-100;
+  }
+  .badge-slate {
+    @apply badge bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200;
+  }
+  .badge-green {
+    @apply badge bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100;
+  }
+
+  /* Kbd chip estilo terminal */
+  .kbd {
+    @apply inline-flex min-w-[1.25rem] items-center justify-center rounded-md border border-slate-200
+           bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-slate-500
+           shadow-xs;
+  }
+
+  /* Navegação sidebar */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600
+           transition-all duration-150
+           hover:bg-slate-100 hover:text-ink;
+  }
+  .nav-item-active {
+    @apply bg-royal-50 text-royal-700
+           hover:bg-royal-50 hover:text-royal-700;
+  }
+
+  /* Skeleton com shimmer */
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-slate-100;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent;
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

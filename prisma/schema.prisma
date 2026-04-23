@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  recruiter
+  admin
+}
+
+enum Fluxo {
+  padrao
+  rapido
+}
+
+enum StatusCandidato {
+  triagem
+  entrevista
+  shortlist
+  aprovado
+  reprovado
+}
+
+enum Senioridade {
+  estagio
+  junior
+  pleno
+  senior
+  especialista
+  lideranca
+}
+
+enum Modelo {
+  presencial
+  hibrido
+  remoto
+}
+
+enum TipoAtividade {
+  vaga_criada
+  vaga_publicada
+  vaga_encerrada
+  vaga_reaberta
+  vaga_editada
+  triagem_confirmada
+  entrevistas_confirmadas
+  shortlist_interna_registrada
+  shortlist_entregue
+  contato_cliente_registrado
+  marco_desfeito
+  candidato_adicionado
+  candidato_status_alterado
+  candidato_removido
+  candidato_editado
+  nota_adicionada
+}
+
+model User {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  role      Role     @default(recruiter)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  vagas      Vaga[]       @relation("RecrutadorVagas")
+  atividades Atividade[]
+}
+
+model Vaga {
+  id                         String       @id @default(cuid())
+  titulo                     String
+  cliente                    String
+  recrutadorId               String
+  obs                        String?
+  dataBriefing               DateTime
+  dataPublicacao             DateTime?
+  dataPrazo                  DateTime?
+  fluxo                      Fluxo        @default(padrao)
+  shortlistEntregue          Boolean      @default(false)
+  dataShortlistEntregue      DateTime?
+  dataUltimoContatoCliente   DateTime?
+  dataTriagemConfirmada      DateTime?
+  dataEntrevistasConfirmada  DateTime?
+  dataShortlistInterna       DateTime?
+  encerrada                  Boolean      @default(false)
+  dataEncerramento           DateTime?
+  createdAt                  DateTime     @default(now())
+
+  // Atributos de apresentação/filtro (novos no upgrade)
+  senioridade   Senioridade?
+  modelo        Modelo?
+  localizacao   String?
+  salarioMin    Decimal?      @db.Decimal(10, 2)
+  salarioMax    Decimal?      @db.Decimal(10, 2)
+  area          String?
+
+  recrutador User        @relation("RecrutadorVagas", fields: [recrutadorId], references: [id])
+  candidatos Candidato[]
+  atividades Atividade[]
+
+  @@index([recrutadorId])
+  @@index([encerrada])
+  @@index([area])
+}
+
+model Candidato {
+  id                      String          @id @default(cuid())
+  vagaId                  String
+  nome                    String
+  status                  StatusCandidato @default(triagem)
+  email                   String?
+  telefone                String?
+  linkCV                  String?
+  notas                   String?
+  score                   Int?            // 1-5
+  etapaDesde              DateTime        @default(now())
+  createdAt               DateTime        @default(now())
+
+  vaga Vaga @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+
+  @@index([vagaId])
+  @@index([status])
+}
+
+model Atividade {
+  id            String        @id @default(cuid())
+  vagaId        String
+  autorId       String
+  tipo          TipoAtividade
+  descricao     String
+  /// metadados livres (ex.: status anterior/novo, nome de candidato, etc.)
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+
+  vaga  Vaga @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  autor User @relation(fields: [autorId], references: [id])
+
+  @@index([vagaId, createdAt])
+  @@index([autorId])
+}
