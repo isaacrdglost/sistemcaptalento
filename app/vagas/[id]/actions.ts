@@ -58,7 +58,7 @@ const modeloEnum = z.enum(["presencial", "hibrido", "remoto"]);
 
 const atualizarVagaSchema = z.object({
   titulo: z.string().min(1, "Título obrigatório").max(200),
-  cliente: z.string().min(1, "Cliente obrigatório").max(200),
+  clienteId: z.string().min(1, "Selecione um cliente"),
   obs: z.string().max(5000).nullable().optional(),
   dataBriefing: z.coerce.date(),
   dataPrazo: z.coerce.date().nullable().optional(),
@@ -437,7 +437,7 @@ export async function removerCandidato(
 
 export type AtualizarVagaInput = {
   titulo: string;
-  cliente: string;
+  clienteId: string;
   obs: string | null;
   dataBriefing: Date | string;
   dataPrazo: Date | string | null;
@@ -473,9 +473,18 @@ export async function atualizarVaga(
   if (!res.ok) return { error: res.error };
   const { session, vaga } = res;
 
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: parsed.data.clienteId },
+    select: { id: true, razaoSocial: true, ativo: true },
+  });
+  if (!cliente || !cliente.ativo) {
+    return { error: "Cliente selecionado não existe ou está arquivado" };
+  }
+
   const updateData: {
     titulo: string;
     cliente: string;
+    clienteId: string;
     obs: string | null;
     dataBriefing: Date;
     dataPrazo: Date | null;
@@ -489,7 +498,8 @@ export async function atualizarVaga(
     area: string | null;
   } = {
     titulo: parsed.data.titulo,
-    cliente: parsed.data.cliente,
+    cliente: cliente.razaoSocial,
+    clienteId: cliente.id,
     obs: parsed.data.obs ?? null,
     dataBriefing: parsed.data.dataBriefing,
     dataPrazo: parsed.data.dataPrazo ?? null,

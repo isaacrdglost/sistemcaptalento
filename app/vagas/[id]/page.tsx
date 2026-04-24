@@ -53,14 +53,20 @@ export default async function VagaDetailPage({ params }: PageProps) {
 
   const derived = computeVagaDerived(vaga);
 
-  const recrutadores =
+  const [recrutadores, clientes] = await Promise.all([
     session.user.role === "admin"
-      ? await prisma.user.findMany({
+      ? prisma.user.findMany({
           where: { role: "recruiter", ativo: true },
           select: { id: true, nome: true },
           orderBy: { nome: "asc" },
         })
-      : [];
+      : Promise.resolve([]),
+    prisma.cliente.findMany({
+      where: { ativo: true },
+      select: { id: true, razaoSocial: true, nomeFantasia: true },
+      orderBy: { razaoSocial: "asc" },
+    }),
+  ]);
 
   const prazoClass = prazoBadgeClass[prazoCor(derived.diasRestantesPrazo)];
   const dias = derived.diasRestantesPrazo;
@@ -131,6 +137,7 @@ export default async function VagaDetailPage({ params }: PageProps) {
             <VagaInfoForm
               vaga={vaga}
               recrutadores={recrutadores}
+              clientes={clientes}
               role={session.user.role}
             />
 

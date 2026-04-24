@@ -23,9 +23,17 @@ export interface SearchCandidato {
   vagaTitulo: string;
 }
 
+export interface SearchCliente {
+  id: string;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  vagasCount: number;
+}
+
 export interface SearchResponse {
   vagas: SearchVaga[];
   candidatos: SearchCandidato[];
+  clientes: SearchCliente[];
 }
 
 export async function GET(request: Request) {
@@ -45,7 +53,7 @@ export async function GET(request: Request) {
     const vagaScope = isAdmin ? {} : { recrutadorId: userId };
 
     if (q.length === 0) {
-      const [vagasRaw, candidatosRaw] = await Promise.all([
+      const [vagasRaw, candidatosRaw, clientesRaw] = await Promise.all([
         prisma.vaga.findMany({
           where: vagaScope,
           orderBy: { createdAt: "desc" },
@@ -70,6 +78,17 @@ export async function GET(request: Request) {
             vaga: { select: { titulo: true } },
           },
         }),
+        prisma.cliente.findMany({
+          where: { ativo: true },
+          orderBy: { razaoSocial: "asc" },
+          take: FALLBACK_LIMIT,
+          select: {
+            id: true,
+            razaoSocial: true,
+            nomeFantasia: true,
+            _count: { select: { vagas: true } },
+          },
+        }),
       ]);
 
       const response: SearchResponse = {
@@ -81,11 +100,17 @@ export async function GET(request: Request) {
           status: c.status,
           vagaTitulo: c.vaga.titulo,
         })),
+        clientes: clientesRaw.map((c) => ({
+          id: c.id,
+          razaoSocial: c.razaoSocial,
+          nomeFantasia: c.nomeFantasia,
+          vagasCount: c._count.vagas,
+        })),
       };
       return NextResponse.json(response);
     }
 
-    const [vagasRaw, candidatosRaw] = await Promise.all([
+    const [vagasRaw, candidatosRaw, clientesRaw] = await Promise.all([
       prisma.vaga.findMany({
         where: {
           AND: [
@@ -125,6 +150,23 @@ export async function GET(request: Request) {
           vaga: { select: { titulo: true } },
         },
       }),
+      prisma.cliente.findMany({
+        where: {
+          OR: [
+            { razaoSocial: { contains: q, mode: "insensitive" } },
+            { nomeFantasia: { contains: q, mode: "insensitive" } },
+            { cnpj: { contains: q.replace(/\D+/g, ""), mode: "insensitive" } },
+          ],
+        },
+        orderBy: { razaoSocial: "asc" },
+        take: MAX_RESULTS,
+        select: {
+          id: true,
+          razaoSocial: true,
+          nomeFantasia: true,
+          _count: { select: { vagas: true } },
+        },
+      }),
     ]);
 
     const response: SearchResponse = {
@@ -135,6 +177,12 @@ export async function GET(request: Request) {
         nome: c.nome,
         status: c.status,
         vagaTitulo: c.vaga.titulo,
+      })),
+      clientes: clientesRaw.map((c) => ({
+        id: c.id,
+        razaoSocial: c.razaoSocial,
+        nomeFantasia: c.nomeFantasia,
+        vagasCount: c._count.vagas,
       })),
     };
     return NextResponse.json(response);

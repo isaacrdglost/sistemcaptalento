@@ -13,6 +13,7 @@ import { useConfirm } from "./ConfirmDialog";
 interface VagaInfoFormProps {
   vaga: Vaga & { recrutador?: { id: string; nome: string } | null };
   recrutadores: { id: string; nome: string }[];
+  clientes: { id: string; razaoSocial: string; nomeFantasia: string | null }[];
   role: "recruiter" | "admin";
 }
 
@@ -39,12 +40,13 @@ function parseDateInput(value: string): Date | null {
 export function VagaInfoForm({
   vaga,
   recrutadores,
+  clientes,
   role,
 }: VagaInfoFormProps) {
   const isAdmin = role === "admin";
 
   const [titulo, setTitulo] = useState(vaga.titulo);
-  const [cliente, setCliente] = useState(vaga.cliente);
+  const [clienteId, setClienteId] = useState<string>(vaga.clienteId ?? "");
   const [obs, setObs] = useState(vaga.obs ?? "");
   const [dataBriefing, setDataBriefing] = useState(
     toDateInputValue(vaga.dataBriefing),
@@ -74,9 +76,14 @@ export function VagaInfoForm({
       return;
     }
 
+    if (!clienteId) {
+      setError("Selecione um cliente");
+      return;
+    }
+
     const payload = {
       titulo: titulo.trim(),
-      cliente: cliente.trim(),
+      clienteId,
       obs: obs.trim() ? obs.trim() : null,
       dataBriefing: briefing,
       dataPrazo: parseDateInput(dataPrazo),
@@ -193,15 +200,33 @@ export function VagaInfoForm({
           <label htmlFor="cliente" className="label">
             Cliente
           </label>
-          <input
+          <select
             id="cliente"
-            type="text"
-            value={cliente}
-            onChange={(e) => setCliente(e.target.value)}
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
             disabled={isPending}
             required
             className="input"
-          />
+          >
+            <option value="" disabled>
+              Selecione um cliente…
+            </option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.razaoSocial}
+                {c.nomeFantasia ? ` (${c.nomeFantasia})` : ""}
+              </option>
+            ))}
+            {/* Fallback: se o cliente atual foi arquivado e não aparece
+                na lista filtrada, mostra como opção desabilitada pra
+                preservar o valor exibido. */}
+            {vaga.clienteId &&
+              !clientes.find((c) => c.id === vaga.clienteId) && (
+                <option value={vaga.clienteId}>
+                  {vaga.cliente} (arquivado)
+                </option>
+              )}
+          </select>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

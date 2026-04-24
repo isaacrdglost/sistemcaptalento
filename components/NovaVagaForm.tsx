@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { criarVaga } from "@/app/vagas/nova/actions";
 import { getFluxoSpec } from "@/lib/flows";
@@ -8,6 +9,8 @@ import type { Fluxo } from "@prisma/client";
 
 interface NovaVagaFormProps {
   recrutadores: { id: string; nome: string }[];
+  clientes: { id: string; razaoSocial: string; nomeFantasia: string | null }[];
+  clienteIdInicial?: string;
   currentUser: {
     id: string;
     nome: string;
@@ -23,13 +26,18 @@ function todayISO(): string {
   return `${y}-${m}-${day}`;
 }
 
-export function NovaVagaForm({ recrutadores, currentUser }: NovaVagaFormProps) {
+export function NovaVagaForm({
+  recrutadores,
+  clientes,
+  clienteIdInicial,
+  currentUser,
+}: NovaVagaFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const [titulo, setTitulo] = useState("");
-  const [cliente, setCliente] = useState("");
+  const [clienteId, setClienteId] = useState<string>(clienteIdInicial ?? "");
   const [obs, setObs] = useState("");
   const [dataBriefing, setDataBriefing] = useState<string>(todayISO());
   const [dataPrazo, setDataPrazo] = useState<string>("");
@@ -48,8 +56,8 @@ export function NovaVagaForm({ recrutadores, currentUser }: NovaVagaFormProps) {
       setError("Informe um título com ao menos 2 caracteres");
       return;
     }
-    if (cliente.trim().length < 2) {
-      setError("Informe um cliente com ao menos 2 caracteres");
+    if (!clienteId) {
+      setError("Selecione um cliente");
       return;
     }
     if (!dataBriefing) {
@@ -64,7 +72,7 @@ export function NovaVagaForm({ recrutadores, currentUser }: NovaVagaFormProps) {
     startTransition(async () => {
       const result = await criarVaga({
         titulo: titulo.trim(),
-        cliente: cliente.trim(),
+        clienteId,
         obs: obs.trim() ? obs.trim() : undefined,
         dataBriefing,
         dataPrazo: dataPrazo ? dataPrazo : undefined,
@@ -144,16 +152,34 @@ export function NovaVagaForm({ recrutadores, currentUser }: NovaVagaFormProps) {
         <label htmlFor="cliente" className="label">
           Cliente
         </label>
-        <input
+        <select
           id="cliente"
-          type="text"
           className="input"
-          value={cliente}
-          onChange={(e) => setCliente(e.target.value)}
-          placeholder="Nome da empresa"
+          value={clienteId}
+          onChange={(e) => setClienteId(e.target.value)}
           required
-          minLength={2}
-        />
+        >
+          <option value="" disabled>
+            Selecione um cliente…
+          </option>
+          {clientes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.razaoSocial}
+              {c.nomeFantasia ? ` (${c.nomeFantasia})` : ""}
+            </option>
+          ))}
+        </select>
+        {clientes.length === 0 && (
+          <p className="mt-1 text-xs text-amber-700">
+            Nenhum cliente ativo cadastrado.{" "}
+            <Link
+              href="/clientes"
+              className="font-semibold text-royal underline"
+            >
+              Cadastrar agora
+            </Link>
+          </p>
+        )}
       </div>
 
       <div>

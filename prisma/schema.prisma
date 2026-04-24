@@ -73,10 +73,32 @@ model User {
   atividades Atividade[]
 }
 
+model Cliente {
+  id                  String   @id @default(cuid())
+  razaoSocial         String
+  nomeFantasia        String?
+  cnpj                String?  @unique
+  contatoResponsavel  String?
+  emailPrincipal      String?
+  telefone            String?
+  segmento            String?
+  obs                 String?
+  ativo               Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  vagas Vaga[]
+
+  @@index([ativo])
+}
+
 model Vaga {
   id                         String       @id @default(cuid())
   titulo                     String
+  /// Legado: nome do cliente em texto livre. Mantido pra histórico e
+  /// compatibilidade com dados antigos. Novos registros DEVEM usar
+  /// clienteId — este campo é denormalizado a partir do Cliente.
   cliente                    String
+  clienteId                  String?
   recrutadorId               String
   obs                        String?
   dataBriefing               DateTime
@@ -102,10 +124,12 @@ model Vaga {
   area          String?
 
   recrutador User        @relation("RecrutadorVagas", fields: [recrutadorId], references: [id])
+  clienteRef Cliente?    @relation(fields: [clienteId], references: [id])
   candidatos Candidato[]
   atividades Atividade[]
 
   @@index([recrutadorId])
+  @@index([clienteId])
   @@index([encerrada])
   @@index([area])
 }

@@ -9,7 +9,7 @@ import { logActivity } from "@/lib/activity";
 
 const schema = z.object({
   titulo: z.string().min(2, "Título deve ter ao menos 2 caracteres"),
-  cliente: z.string().min(2, "Cliente deve ter ao menos 2 caracteres"),
+  clienteId: z.string().min(1, "Selecione um cliente"),
   obs: z.string().optional(),
   dataBriefing: z.string().min(1, "Data do briefing é obrigatória"),
   dataPrazo: z.string().optional(),
@@ -81,11 +81,23 @@ export async function criarVaga(
     dataPrazo = d;
   }
 
+  // Valida o cliente selecionado: precisa existir e estar ativo.
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: data.clienteId },
+    select: { id: true, razaoSocial: true, ativo: true },
+  });
+  if (!cliente || !cliente.ativo) {
+    return { error: "Cliente selecionado não existe ou está arquivado" };
+  }
+
   try {
     const novaVaga = await prisma.vaga.create({
       data: {
         titulo: data.titulo.trim(),
-        cliente: data.cliente.trim(),
+        // cliente (string) é mantido denormalizado a partir da razão social
+        // do Cliente escolhido — facilita listagens sem join pesado.
+        cliente: cliente.razaoSocial,
+        clienteId: cliente.id,
         obs: data.obs?.trim() ? data.obs.trim() : null,
         dataBriefing,
         dataPrazo,

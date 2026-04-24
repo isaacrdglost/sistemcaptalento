@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Briefcase,
+  Building2,
   PlusCircle,
   Users,
   Settings,
@@ -30,6 +31,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/vagas/nova", label: "Nova vaga", icon: PlusCircle, exact: true },
+  { href: "/clientes", label: "Clientes", icon: Building2 },
   { href: "/admin", label: "Administração", icon: Settings, adminOnly: true },
 ];
 

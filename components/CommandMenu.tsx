@@ -10,6 +10,7 @@ import {
   PlusCircle,
   Settings,
   Briefcase,
+  Building2,
   User,
 } from "lucide-react";
 import { useCommandMenu } from "./CommandMenuProvider";
@@ -32,9 +33,17 @@ interface SearchCandidato {
   vagaTitulo: string;
 }
 
+interface SearchCliente {
+  id: string;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  vagasCount: number;
+}
+
 interface SearchResponse {
   vagas: SearchVaga[];
   candidatos: SearchCandidato[];
+  clientes: SearchCliente[];
 }
 
 const DEBOUNCE_MS = 150;
@@ -48,6 +57,7 @@ export function CommandMenu() {
   const [query, setQuery] = useState("");
   const [vagas, setVagas] = useState<SearchVaga[]>([]);
   const [candidatos, setCandidatos] = useState<SearchCandidato[]>([]);
+  const [clientes, setClientes] = useState<SearchCliente[]>([]);
   const [loading, setLoading] = useState(false);
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -88,6 +98,7 @@ export function CommandMenu() {
           if (!controller.signal.aborted) {
             setVagas([]);
             setCandidatos([]);
+            setClientes([]);
           }
           return;
         }
@@ -95,11 +106,13 @@ export function CommandMenu() {
         if (!controller.signal.aborted) {
           setVagas(data.vagas ?? []);
           setCandidatos(data.candidatos ?? []);
+          setClientes(data.clientes ?? []);
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setVagas([]);
           setCandidatos([]);
+          setClientes([]);
         }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -178,6 +191,12 @@ export function CommandMenu() {
               icon={<PlusCircle size={16} className="text-slate-500" />}
               onSelect={() => go("/vagas/nova")}
             />
+            <NavItem
+              value="nav-clientes"
+              label="Clientes"
+              icon={<Building2 size={16} className="text-slate-500" />}
+              onSelect={() => go("/clientes")}
+            />
             {isAdmin && (
               <NavItem
                 value="nav-admin"
@@ -215,6 +234,43 @@ export function CommandMenu() {
                       }
                     >
                       {fluxoLabel(v.fluxo)}
+                    </span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            </>
+          )}
+
+          {clientes.length > 0 && (
+            <>
+              <Command.Separator className="my-1 h-px bg-slate-100" />
+              <Command.Group
+                heading="Clientes"
+                className="px-1 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2"
+              >
+                {clientes.map((c) => (
+                  <Command.Item
+                    key={c.id}
+                    value={`cli-${c.id}-${c.razaoSocial}`}
+                    onSelect={() => go(`/clientes/${c.id}`)}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink transition data-[selected=true]:bg-royal-50 data-[selected=true]:text-royal-700"
+                  >
+                    <Building2
+                      size={16}
+                      className="shrink-0 text-slate-500"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">
+                        {c.razaoSocial}
+                      </div>
+                      {c.nomeFantasia && (
+                        <div className="truncate text-xs text-slate-500">
+                          {c.nomeFantasia}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {c.vagasCount} vaga{c.vagasCount === 1 ? "" : "s"}
                     </span>
                   </Command.Item>
                 ))}

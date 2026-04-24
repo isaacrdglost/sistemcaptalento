@@ -3,17 +3,27 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { NovaVagaForm } from "@/components/NovaVagaForm";
 
-export default async function NovaVagaPage() {
+interface PageProps {
+  searchParams?: { clienteId?: string };
+}
+
+export default async function NovaVagaPage({ searchParams }: PageProps) {
   const session = await requireSession();
 
-  const recrutadores =
+  const [recrutadores, clientes] = await Promise.all([
     session.user.role === "admin"
-      ? await prisma.user.findMany({
+      ? prisma.user.findMany({
           where: { role: "recruiter", ativo: true },
           orderBy: { nome: "asc" },
           select: { id: true, nome: true },
         })
-      : [];
+      : Promise.resolve([]),
+    prisma.cliente.findMany({
+      where: { ativo: true },
+      orderBy: { razaoSocial: "asc" },
+      select: { id: true, razaoSocial: true, nomeFantasia: true },
+    }),
+  ]);
 
   return (
     <AppShell
@@ -39,6 +49,8 @@ export default async function NovaVagaPage() {
         <div className="card animate-fade-in-up p-6">
           <NovaVagaForm
             recrutadores={recrutadores}
+            clientes={clientes}
+            clienteIdInicial={searchParams?.clienteId}
             currentUser={{
               id: session.user.id,
               nome: session.user.name!,
