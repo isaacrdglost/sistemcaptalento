@@ -4,33 +4,32 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   Calendar,
-  LayoutGrid,
-  List,
+  FileText,
+  Linkedin,
   Mail,
   Phone,
+  ShieldCheck,
   Star,
   Users,
 } from "lucide-react";
-import type { Candidato, StatusCandidato } from "@prisma/client";
+import type { StatusCandidato } from "@prisma/client";
 import {
   adicionarCandidato,
   atualizarStatusCandidato,
   removerCandidato,
 } from "@/app/vagas/[id]/actions";
-import { CandidatoDrawer } from "./CandidatoDrawer";
-import { CandidatoKanban } from "./CandidatoKanban";
+import {
+  CandidatoDrawer,
+  type CandidatoComAnalises,
+} from "./CandidatoDrawer";
 import { useConfirm } from "./ConfirmDialog";
 import { ImportarAgendaDrawer } from "./ImportarAgendaDrawer";
 
 interface CandidatoListProps {
   vagaId: string;
-  candidatos: Candidato[];
+  candidatos: CandidatoComAnalises[];
   canEdit: boolean;
 }
-
-type ViewMode = "lista" | "kanban";
-
-const VIEW_STORAGE_KEY = "captalento.candidato.view";
 
 const STATUS_OPTIONS: {
   value: StatusCandidato;
@@ -43,6 +42,13 @@ const STATUS_OPTIONS: {
   { value: "aprovado", label: "Aprovado", badgeClass: "badge-green" },
   { value: "reprovado", label: "Reprovado", badgeClass: "badge-red" },
 ];
+
+const RESULTADO_BADGE: Record<string, { label: string; badgeClass: string }> = {
+  limpa: { label: "Limpa", badgeClass: "badge-green" },
+  com_ocorrencias: { label: "Ocorrências", badgeClass: "badge-red" },
+  inconclusivo: { label: "Inconclusivo", badgeClass: "badge-amber" },
+  pendente: { label: "Pendente", badgeClass: "badge-slate" },
+};
 
 function badgeClassFor(status: StatusCandidato): string {
   return (
@@ -145,21 +151,9 @@ export function CandidatoList({
   const [nome, setNome] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [view, setView] = useState<ViewMode>("lista");
-  const [openCandidato, setOpenCandidato] = useState<Candidato | null>(null);
+  const [openCandidato, setOpenCandidato] =
+    useState<CandidatoComAnalises | null>(null);
   const [importarOpen, setImportarOpen] = useState(false);
-
-  // Carrega preferência de view do localStorage
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-      if (stored === "lista" || stored === "kanban") {
-        setView(stored);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
 
   // Quando o candidato aberto é atualizado do servidor, refresh referência
   useEffect(() => {
@@ -173,15 +167,6 @@ export function CandidatoList({
       setOpenCandidato(atual);
     }
   }, [candidatos, openCandidato]);
-
-  const persistView = (next: ViewMode) => {
-    setView(next);
-    try {
-      window.localStorage.setItem(VIEW_STORAGE_KEY, next);
-    } catch {
-      // ignore
-    }
-  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,36 +233,8 @@ export function CandidatoList({
         Gerencie a lista e o andamento de cada candidato.
       </p>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-          <button
-            type="button"
-            onClick={() => persistView("lista")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition ${
-              view === "lista"
-                ? "bg-white text-ink shadow-xs"
-                : "text-slate-500 hover:text-ink"
-            }`}
-            aria-pressed={view === "lista"}
-          >
-            <List size={14} />
-            Lista
-          </button>
-          <button
-            type="button"
-            onClick={() => persistView("kanban")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition ${
-              view === "kanban"
-                ? "bg-white text-ink shadow-xs"
-                : "text-slate-500 hover:text-ink"
-            }`}
-            aria-pressed={view === "kanban"}
-          >
-            <LayoutGrid size={14} />
-            Kanban
-          </button>
-        </div>
-        {canEdit && (
+      {canEdit && (
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => setImportarOpen(true)}
@@ -286,8 +243,8 @@ export function CandidatoList({
             <Calendar size={14} />
             Importar da agenda
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {candidatos.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center animate-fade-in-up">
@@ -301,86 +258,111 @@ export function CandidatoList({
             Adicione o primeiro candidato pelo formulário abaixo.
           </p>
         </div>
-      ) : view === "kanban" ? (
-        <div className="animate-fade-in-up">
-          <CandidatoKanban
-            candidatos={candidatos}
-            canEdit={canEdit}
-            onOpenCandidato={(c) => setOpenCandidato(c)}
-          />
-        </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {candidatos.map((c, idx) => (
-            <li
-              key={c.id}
-              className="group flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/70 bg-white p-3 shadow-xs transition hover:-translate-y-0.5 hover:shadow-card-hover animate-fade-in-up"
-              style={{ animationDelay: `${Math.min(idx, 8) * 30}ms` }}
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-royal text-xs font-bold text-white">
-                {iniciais(c.nome)}
-              </span>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-semibold text-ink">
-                    {c.nome}
-                  </span>
-                </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                  {c.email && (
-                    <span className="inline-flex min-w-0 items-center gap-1">
-                      <Mail size={12} className="shrink-0" />
-                      <span className="truncate">{c.email}</span>
-                    </span>
-                  )}
-                  {c.telefone && (
-                    <span className="inline-flex min-w-0 items-center gap-1">
-                      <Phone size={12} className="shrink-0" />
-                      <span className="truncate">{c.telefone}</span>
-                    </span>
-                  )}
-                  {!c.email && !c.telefone && (
-                    <span className="italic text-slate-400">
-                      Sem contato registrado
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="hidden sm:block">
-                <ScoreStars score={c.score} />
-              </div>
-
-              <StatusPill
-                status={c.status}
-                disabled={isPending || !canEdit}
-                onChange={(s) => handleStatusChange(c.id, s)}
-                canEdit={canEdit}
-              />
-
-              <button
-                type="button"
-                onClick={() => setOpenCandidato(c)}
-                className="btn-secondary py-1.5 px-3 text-xs"
+          {candidatos.map((c, idx) => {
+            const temLinkedin = Boolean(c.linkedinUrl);
+            const temCV = Boolean(c.cvArquivoUrl || c.linkCV);
+            const ultimaAnalise = c.analises?.[0];
+            const analiseMeta = ultimaAnalise
+              ? RESULTADO_BADGE[ultimaAnalise.resultado]
+              : null;
+            return (
+              <li
+                key={c.id}
+                className="group flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/70 bg-white p-3 shadow-xs transition hover:-translate-y-0.5 hover:shadow-card-hover animate-fade-in-up"
+                style={{ animationDelay: `${Math.min(idx, 8) * 30}ms` }}
               >
-                Abrir
-              </button>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-royal text-xs font-bold text-white">
+                  {iniciais(c.nome)}
+                </span>
 
-              {canEdit && (
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate font-semibold text-ink">
+                      {c.nome}
+                    </span>
+                    {temLinkedin && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                        title="Possui LinkedIn"
+                      >
+                        <Linkedin size={10} />
+                      </span>
+                    )}
+                    {temCV && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                        title="Possui CV"
+                      >
+                        <FileText size={10} />
+                      </span>
+                    )}
+                    {analiseMeta && (
+                      <span
+                        className={`${analiseMeta.badgeClass} inline-flex items-center gap-1 px-1.5 py-0 text-[10px]`}
+                        title={`Análise: ${analiseMeta.label}`}
+                      >
+                        <ShieldCheck size={10} />
+                        {analiseMeta.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    {c.email && (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <Mail size={12} className="shrink-0" />
+                        <span className="truncate">{c.email}</span>
+                      </span>
+                    )}
+                    {c.telefone && (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <Phone size={12} className="shrink-0" />
+                        <span className="truncate">{c.telefone}</span>
+                      </span>
+                    )}
+                    {!c.email && !c.telefone && (
+                      <span className="italic text-slate-400">
+                        Sem contato registrado
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="hidden sm:block">
+                  <ScoreStars score={c.score} />
+                </div>
+
+                <StatusPill
+                  status={c.status}
+                  disabled={isPending || !canEdit}
+                  onChange={(s) => handleStatusChange(c.id, s)}
+                  canEdit={canEdit}
+                />
+
                 <button
                   type="button"
-                  disabled={isPending}
-                  onClick={() => handleRemove(c.id, c.nome)}
-                  aria-label={`Remover ${c.nome}`}
-                  title="Remover"
-                  className="rounded px-2 py-1 text-slate-400 transition hover:text-red-600 disabled:opacity-50"
+                  onClick={() => setOpenCandidato(c)}
+                  className="btn-secondary py-1.5 px-3 text-xs"
                 >
-                  ×
+                  Abrir
                 </button>
-              )}
-            </li>
-          ))}
+
+                {canEdit && (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => handleRemove(c.id, c.nome)}
+                    aria-label={`Remover ${c.nome}`}
+                    title="Remover"
+                    className="rounded px-2 py-1 text-slate-400 transition hover:text-red-600 disabled:opacity-50"
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 

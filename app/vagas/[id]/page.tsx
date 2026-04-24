@@ -35,7 +35,15 @@ export default async function VagaDetailPage({ params }: PageProps) {
   const vaga = await prisma.vaga.findUnique({
     where: { id: params.id },
     include: {
-      candidatos: { orderBy: { createdAt: "desc" } },
+      candidatos: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          analises: {
+            include: { autor: { select: { nome: true } } },
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      },
       recrutador: { select: { id: true, nome: true } },
     },
   });

@@ -8,10 +8,12 @@ import {
   Phone,
   Play,
   RotateCcw,
+  ShieldCheck,
   StickyNote,
   Unlock,
   UserMinus,
   UserPlus,
+  UserSearch,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -132,6 +134,18 @@ const ICON_BY_TIPO: Record<TipoAtividade, IconSpec> = {
     color: "text-royal-600",
     bg: "bg-royal-50",
     ring: "ring-royal-200",
+  },
+  analise_ficha_registrada: {
+    Icon: ShieldCheck,
+    color: "text-royal-600",
+    bg: "bg-royal-50",
+    ring: "ring-royal-200",
+  },
+  talento_vinculado: {
+    Icon: UserSearch,
+    color: "text-lima-700",
+    bg: "bg-lima-50",
+    ring: "ring-lima-200",
   },
 };
 

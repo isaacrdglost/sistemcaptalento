@@ -14,6 +14,21 @@ export function formatCNPJ(cnpj: string | null | undefined): string {
 }
 
 /**
+ * Formata um CPF no padrão "XXX.XXX.XXX-XX".
+ * Aceita string com ou sem máscara. Se a entrada não contiver exatamente
+ * 11 dígitos, retorna o valor original (sem quebrar a UI).
+ */
+export function formatCPF(cpf: string | null | undefined): string {
+  if (!cpf) return "";
+  const digits = cpf.replace(/\D+/g, "");
+  if (digits.length !== 11) return cpf;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(
+    6,
+    9,
+  )}-${digits.slice(9, 11)}`;
+}
+
+/**
  * Formata um telefone brasileiro nas máscaras usuais:
  *  - 10 dígitos → "(XX) XXXX-XXXX"
  *  - 11 dígitos → "(XX) XXXXX-XXXX"

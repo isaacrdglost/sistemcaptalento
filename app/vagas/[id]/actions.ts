@@ -72,16 +72,66 @@ const atualizarVagaSchema = z.object({
   area: z.string().max(100).nullable().optional(),
 });
 
+const urlOrNull = z
+  .string()
+  .trim()
+  .max(500)
+  .transform((v) => (v.length === 0 ? null : v))
+  .nullable()
+  .refine(
+    (v) => {
+      if (v === null) return true;
+      try {
+        const u = new URL(v);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "URL inválida" },
+  );
+
 const editarCandidatoSchema = z.object({
   nome: z.string().min(1).max(200),
   email: z.string().email().nullable().optional(),
   telefone: z.string().max(40).nullable().optional(),
-  linkCV: z.string().url().max(500).nullable().optional(),
+  linkedinUrl: urlOrNull.optional(),
+  linkCV: urlOrNull.optional(),
+  cvArquivoUrl: urlOrNull.optional(),
+  cvNomeArquivo: z.string().trim().max(200).nullable().optional(),
+  cpf: z
+    .string()
+    .trim()
+    .max(20)
+    .nullable()
+    .optional()
+    .transform((v) => {
+      if (!v) return null;
+      const digits = v.replace(/\D+/g, "");
+      return digits.length === 0 ? null : digits;
+    })
+    .refine((v) => v === null || v.length === 11, {
+      message: "CPF deve ter 11 dígitos",
+    }),
   notas: z.string().max(5000).nullable().optional(),
   score: z.number().int().min(1).max(5).nullable().optional(),
 });
 
 export type EditarCandidatoInput = z.input<typeof editarCandidatoSchema>;
+
+const analiseFichaSchema = z.object({
+  cpf: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/\D+/g, ""))
+    .refine((v) => v.length === 11, { message: "CPF deve ter 11 dígitos" }),
+  resultado: z.enum(["limpa", "com_ocorrencias", "inconclusivo", "pendente"]),
+  provedor: z.string().trim().min(1).max(50).default("escavador"),
+  notas: z.string().trim().max(5000).nullable().optional(),
+  linkExterno: urlOrNull.optional(),
+});
+
+export type AnaliseFichaInput = z.input<typeof analiseFichaSchema>;
 
 async function getSessionOrError(): Promise<SessionResult> {
   const session = await getServerSession(authOptions);
@@ -569,7 +619,11 @@ export async function editarCandidato(
       nome: parsed.data.nome.trim(),
       email: parsed.data.email ?? null,
       telefone: parsed.data.telefone ?? null,
+      linkedinUrl: parsed.data.linkedinUrl ?? null,
       linkCV: parsed.data.linkCV ?? null,
+      cvArquivoUrl: parsed.data.cvArquivoUrl ?? null,
+      cvNomeArquivo: parsed.data.cvNomeArquivo ?? null,
+      cpf: parsed.data.cpf ?? null,
       notas: parsed.data.notas ?? null,
       score: parsed.data.score ?? null,
     },
@@ -582,7 +636,10 @@ export async function editarCandidato(
     parsed.data.nome.trim() === before.nome &&
     (parsed.data.email ?? null) === before.email &&
     (parsed.data.telefone ?? null) === before.telefone &&
+    (parsed.data.linkedinUrl ?? null) === before.linkedinUrl &&
     (parsed.data.linkCV ?? null) === before.linkCV &&
+    (parsed.data.cvArquivoUrl ?? null) === before.cvArquivoUrl &&
+    (parsed.data.cpf ?? null) === before.cpf &&
     (parsed.data.score ?? null) === before.score;
 
   await logActivity({
@@ -687,4 +744,62 @@ export async function importarCandidatosDaAgenda(
     importados: paraCriar.length,
     duplicadosIgnorados: parsed.data.itens.length - paraCriar.length,
   };
+}
+
+// --- Análise de ficha (CPF) ---
+
+export async function registrarAnaliseFicha(
+  candidatoId: string,
+  data: AnaliseFichaInput,
+): Promise<ActionResult> {
+  const parsed = analiseFichaSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+
+  const res = await loadEditableVagaByCandidato(candidatoId);
+  if (!res.ok) return { error: res.error };
+
+  await prisma.analiseFicha.create({
+    data: {
+      candidatoId: res.candidato.id,
+      cpf: parsed.data.cpf,
+      resultado: parsed.data.resultado,
+      provedor: parsed.data.provedor,
+      notas: parsed.data.notas ?? null,
+      linkExterno: parsed.data.linkExterno ?? null,
+      autorId: res.session.user.id,
+    },
+  });
+
+  // Se o candidato não tinha CPF registrado ainda, grava também
+  if (!res.candidato.cpf) {
+    await prisma.candidato.update({
+      where: { id: res.candidato.id },
+      data: { cpf: parsed.data.cpf },
+    });
+  }
+
+  const labelResultado: Record<string, string> = {
+    limpa: "ficha limpa",
+    com_ocorrencias: "com ocorrências",
+    inconclusivo: "inconclusivo",
+    pendente: "pendente",
+  };
+
+  await logActivity({
+    vagaId: res.candidato.vagaId,
+    autorId: res.session.user.id,
+    tipo: "analise_ficha_registrada",
+    descricao: `registrou análise de ficha de ${res.candidato.nome}: ${labelResultado[parsed.data.resultado] ?? parsed.data.resultado}`,
+    metadata: {
+      candidatoId: res.candidato.id,
+      nome: res.candidato.nome,
+      resultado: parsed.data.resultado,
+      provedor: parsed.data.provedor,
+    },
+  });
+
+  revalidateVaga(res.candidato.vagaId);
+  return { ok: true };
 }

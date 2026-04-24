@@ -59,6 +59,15 @@ enum TipoAtividade {
   candidato_editado
   nota_adicionada
   candidatos_importados_agenda
+  analise_ficha_registrada
+  talento_vinculado
+}
+
+enum ResultadoAnalise {
+  limpa
+  com_ocorrencias
+  inconclusivo
+  pendente
 }
 
 model User {
@@ -75,8 +84,9 @@ model User {
   /// Null quando o usuário ainda não configurou.
   calendarIcsUrlEnc String?
 
-  vagas      Vaga[]       @relation("RecrutadorVagas")
-  atividades Atividade[]
+  vagas         Vaga[]          @relation("RecrutadorVagas")
+  atividades    Atividade[]
+  analisesFicha AnaliseFicha[]
 }
 
 model Cliente {
@@ -143,28 +153,83 @@ model Vaga {
 model Candidato {
   id                      String          @id @default(cuid())
   vagaId                  String
+  talentoId               String?
   nome                    String
   status                  StatusCandidato @default(triagem)
   email                   String?
   telefone                String?
+  linkedinUrl             String?
   linkCV                  String?
+  cvArquivoUrl            String?
+  cvNomeArquivo           String?
+  cpf                     String?
   notas                   String?
   score                   Int?            // 1-5
   etapaDesde              DateTime        @default(now())
   createdAt               DateTime        @default(now())
 
-  /// Origem do registro. "manual" | "calendar" | "site" | "import" etc.
-  /// Default "manual" pra preservar comportamento anterior.
+  /// Origem do registro. "manual" | "calendar" | "talento" | "site" etc.
   fonteOrigem             String?         @default("manual")
   /// ID externo do evento/origem — usado para detectar duplicatas em
   /// importações sucessivas (ex.: UID de um VEVENT do Google Calendar).
   fonteExternoId          String?
 
-  vaga Vaga @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  vaga      Vaga           @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  talento   Talento?       @relation(fields: [talentoId], references: [id], onDelete: SetNull)
+  analises  AnaliseFicha[]
 
   @@index([vagaId])
+  @@index([talentoId])
   @@index([status])
   @@index([vagaId, fonteExternoId])
+}
+
+model Talento {
+  id             String       @id @default(cuid())
+  nome           String
+  email          String?      @unique
+  telefone       String?
+  linkedinUrl    String?
+  cidade         String?
+  estado         String?
+  senioridade    Senioridade?
+  area           String?
+  tags           String[]     @default([])
+  linkCV         String?
+  cvArquivoUrl   String?
+  cvNomeArquivo  String?
+  notas          String?
+  ativo          Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  /// Origem do cadastro. "manual" (recrutador cadastrou aqui) ou
+  /// "site" (cadastro público do rhcaptalento.com.br).
+  fonteOrigem    String       @default("manual")
+
+  candidatos     Candidato[]
+
+  @@index([ativo])
+  @@index([senioridade])
+  @@index([area])
+}
+
+model AnaliseFicha {
+  id             String           @id @default(cuid())
+  candidatoId    String
+  cpf            String
+  resultado      ResultadoAnalise @default(pendente)
+  provedor       String           @default("escavador") // escavador | jusbrasil | manual | outro
+  notas          String?
+  linkExterno    String?
+  autorId        String
+  createdAt      DateTime         @default(now())
+
+  candidato Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  autor     User      @relation(fields: [autorId], references: [id])
+
+  @@index([candidatoId, createdAt])
+  @@index([cpf])
 }
 
 model Atividade {

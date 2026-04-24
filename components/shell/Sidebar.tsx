@@ -9,6 +9,7 @@ import {
   Building2,
   PlusCircle,
   Users,
+  UserSearch,
   Settings,
   ChevronsLeft,
   ChevronsRight,
@@ -31,6 +32,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/vagas/nova", label: "Nova vaga", icon: PlusCircle, exact: true },
+  { href: "/talentos", label: "Talentos", icon: UserSearch },
   { href: "/clientes", label: "Clientes", icon: Building2 },
   { href: "/admin", label: "Administração", icon: Settings, adminOnly: true },
 ];
