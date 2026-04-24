@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  Calendar,
   LayoutGrid,
   List,
   Mail,
@@ -19,6 +20,7 @@ import {
 import { CandidatoDrawer } from "./CandidatoDrawer";
 import { CandidatoKanban } from "./CandidatoKanban";
 import { useConfirm } from "./ConfirmDialog";
+import { ImportarAgendaDrawer } from "./ImportarAgendaDrawer";
 
 interface CandidatoListProps {
   vagaId: string;
@@ -145,6 +147,7 @@ export function CandidatoList({
   const [isPending, startTransition] = useTransition();
   const [view, setView] = useState<ViewMode>("lista");
   const [openCandidato, setOpenCandidato] = useState<Candidato | null>(null);
+  const [importarOpen, setImportarOpen] = useState(false);
 
   // Carrega preferência de view do localStorage
   useEffect(() => {
@@ -245,33 +248,45 @@ export function CandidatoList({
         Gerencie a lista e o andamento de cada candidato.
       </p>
 
-      <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-        <button
-          type="button"
-          onClick={() => persistView("lista")}
-          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition ${
-            view === "lista"
-              ? "bg-white text-ink shadow-xs"
-              : "text-slate-500 hover:text-ink"
-          }`}
-          aria-pressed={view === "lista"}
-        >
-          <List size={14} />
-          Lista
-        </button>
-        <button
-          type="button"
-          onClick={() => persistView("kanban")}
-          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition ${
-            view === "kanban"
-              ? "bg-white text-ink shadow-xs"
-              : "text-slate-500 hover:text-ink"
-          }`}
-          aria-pressed={view === "kanban"}
-        >
-          <LayoutGrid size={14} />
-          Kanban
-        </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => persistView("lista")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition ${
+              view === "lista"
+                ? "bg-white text-ink shadow-xs"
+                : "text-slate-500 hover:text-ink"
+            }`}
+            aria-pressed={view === "lista"}
+          >
+            <List size={14} />
+            Lista
+          </button>
+          <button
+            type="button"
+            onClick={() => persistView("kanban")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition ${
+              view === "kanban"
+                ? "bg-white text-ink shadow-xs"
+                : "text-slate-500 hover:text-ink"
+            }`}
+            aria-pressed={view === "kanban"}
+          >
+            <LayoutGrid size={14} />
+            Kanban
+          </button>
+        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setImportarOpen(true)}
+            className="btn-secondary inline-flex items-center gap-1.5 py-1.5 px-3 text-sm"
+          >
+            <Calendar size={14} />
+            Importar da agenda
+          </button>
+        )}
       </div>
 
       {candidatos.length === 0 ? (
@@ -404,6 +419,14 @@ export function CandidatoList({
           canEdit={canEdit}
           open={openCandidato !== null}
           onClose={() => setOpenCandidato(null)}
+        />
+      )}
+
+      {canEdit && (
+        <ImportarAgendaDrawer
+          vagaId={vagaId}
+          open={importarOpen}
+          onClose={() => setImportarOpen(false)}
         />
       )}
     </section>

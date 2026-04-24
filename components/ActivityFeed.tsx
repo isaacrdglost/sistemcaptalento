@@ -1,5 +1,6 @@
 import type { TipoAtividade } from "@prisma/client";
 import {
+  CalendarCheck,
   CheckCircle2,
   Edit2,
   FileText,
@@ -125,6 +126,12 @@ const ICON_BY_TIPO: Record<TipoAtividade, IconSpec> = {
     color: "text-amber-700",
     bg: "bg-amber-50",
     ring: "ring-amber-200",
+  },
+  candidatos_importados_agenda: {
+    Icon: CalendarCheck,
+    color: "text-royal-600",
+    bg: "bg-royal-50",
+    ring: "ring-royal-200",
   },
 };
 

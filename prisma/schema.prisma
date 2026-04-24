@@ -58,6 +58,7 @@ enum TipoAtividade {
   candidato_removido
   candidato_editado
   nota_adicionada
+  candidatos_importados_agenda
 }
 
 model User {
@@ -68,6 +69,11 @@ model User {
   role      Role     @default(recruiter)
   ativo     Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  /// URL secreta do calendário Google no formato iCal (.ics) — criptografada
+  /// em repouso com AES-256-GCM usando chave derivada do NEXTAUTH_SECRET.
+  /// Null quando o usuário ainda não configurou.
+  calendarIcsUrlEnc String?
 
   vagas      Vaga[]       @relation("RecrutadorVagas")
   atividades Atividade[]
@@ -147,10 +153,18 @@ model Candidato {
   etapaDesde              DateTime        @default(now())
   createdAt               DateTime        @default(now())
 
+  /// Origem do registro. "manual" | "calendar" | "site" | "import" etc.
+  /// Default "manual" pra preservar comportamento anterior.
+  fonteOrigem             String?         @default("manual")
+  /// ID externo do evento/origem — usado para detectar duplicatas em
+  /// importações sucessivas (ex.: UID de um VEVENT do Google Calendar).
+  fonteExternoId          String?
+
   vaga Vaga @relation(fields: [vagaId], references: [id], onDelete: Cascade)
 
   @@index([vagaId])
   @@index([status])
+  @@index([vagaId, fonteExternoId])
 }
 
 model Atividade {

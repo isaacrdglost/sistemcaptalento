@@ -597,3 +597,94 @@ export async function editarCandidato(
   revalidateVaga(res.candidato.vagaId);
   return { ok: true };
 }
+
+// --- Importação de candidatos a partir da agenda Google ---
+
+const importarAgendaItemSchema = z.object({
+  uid: z.string().min(1, "UID do evento é obrigatório"),
+  nome: z.string().trim().min(1, "Nome obrigatório").max(200),
+  email: z.string().trim().email().nullable().optional(),
+  telefone: z.string().trim().max(40).nullable().optional(),
+  status: statusCandidatoSchema.optional(),
+  notas: z.string().trim().max(2000).nullable().optional(),
+});
+const importarAgendaSchema = z.object({
+  itens: z.array(importarAgendaItemSchema).min(1).max(100),
+});
+
+export type ImportarAgendaInput = z.input<typeof importarAgendaSchema>;
+
+export interface ImportarAgendaResult {
+  ok: true;
+  importados: number;
+  duplicadosIgnorados: number;
+}
+
+export async function importarCandidatosDaAgenda(
+  vagaId: string,
+  data: ImportarAgendaInput,
+): Promise<ImportarAgendaResult | { error: string }> {
+  const parsed = importarAgendaSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+
+  const res = await loadEditableVaga(vagaId);
+  if (!res.ok) return { error: res.error };
+
+  // Deduplica por UID já existente na vaga — evita importações repetidas
+  const uids = parsed.data.itens.map((i) => i.uid);
+  const existentes = await prisma.candidato.findMany({
+    where: {
+      vagaId: res.vaga.id,
+      fonteOrigem: "calendar",
+      fonteExternoId: { in: uids },
+    },
+    select: { fonteExternoId: true },
+  });
+  const jaImportados = new Set(
+    existentes.map((c) => c.fonteExternoId).filter((v): v is string => !!v),
+  );
+
+  const paraCriar = parsed.data.itens.filter((i) => !jaImportados.has(i.uid));
+
+  if (paraCriar.length === 0) {
+    return {
+      ok: true,
+      importados: 0,
+      duplicadosIgnorados: parsed.data.itens.length,
+    };
+  }
+
+  await prisma.candidato.createMany({
+    data: paraCriar.map((i) => ({
+      vagaId: res.vaga.id,
+      nome: i.nome,
+      email: i.email ?? null,
+      telefone: i.telefone ?? null,
+      notas: i.notas ?? null,
+      status: i.status ?? "entrevista",
+      fonteOrigem: "calendar",
+      fonteExternoId: i.uid,
+    })),
+  });
+
+  await logActivity({
+    vagaId: res.vaga.id,
+    autorId: res.session.user.id,
+    tipo: "candidatos_importados_agenda",
+    descricao: `importou ${paraCriar.length} candidato${paraCriar.length === 1 ? "" : "s"} da agenda`,
+    metadata: {
+      importados: paraCriar.length,
+      duplicadosIgnorados: parsed.data.itens.length - paraCriar.length,
+    },
+  });
+
+  revalidateVaga(res.vaga.id);
+
+  return {
+    ok: true,
+    importados: paraCriar.length,
+    duplicadosIgnorados: parsed.data.itens.length - paraCriar.length,
+  };
+}

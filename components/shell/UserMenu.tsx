@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, Settings, User as UserIcon } from "lucide-react";
 
 interface UserMenuProps {
   name: string;
@@ -71,6 +72,15 @@ export function UserMenu({ name, email, role }: UserMenuProps) {
           </div>
 
           <div className="my-1 h-px bg-slate-100" />
+
+          <Link
+            href="/configuracoes"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-ink"
+          >
+            <Settings size={14} />
+            Configurações
+          </Link>
 
           <button
             type="button"
