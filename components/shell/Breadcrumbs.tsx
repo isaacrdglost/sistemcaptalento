@@ -13,16 +13,19 @@ interface BreadcrumbsProps {
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
   if (items.length === 0) return null;
   return (
-    <nav aria-label="breadcrumb" className="flex items-center gap-1 text-xs">
+    <nav
+      aria-label="breadcrumb"
+      className="flex items-center gap-1.5 text-xs"
+    >
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
         return (
-          <span key={`${item.label}-${i}`} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight size={12} className="text-slate-300" />}
+          <span key={`${item.label}-${i}`} className="flex items-center gap-1.5">
+            {i > 0 && <ChevronRight size={12} className="text-line-strong" />}
             {item.href && !isLast ? (
               <Link
                 href={item.href}
-                className="text-slate-500 transition hover:text-ink"
+                className="font-medium text-slate-500 transition hover:text-ink"
               >
                 {item.label}
               </Link>
@@ -31,7 +34,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
                 className={
                   isLast
                     ? "font-semibold text-ink"
-                    : "text-slate-500"
+                    : "font-medium text-slate-500"
                 }
               >
                 {item.label}

@@ -134,10 +134,13 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
 
   return (
     <section className="card p-6">
-      <h2 className="mb-1 text-lg font-bold">Informações do cliente</h2>
-      <p className="mb-4 text-sm text-slate-500">
-        Edite os dados e salve as alterações.
-      </p>
+      <div className="mb-4">
+        <div className="section-label mb-1">Detalhes</div>
+        <h2 className="text-h3 text-ink">Informações do cliente</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Edite os dados e salve as alterações.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
@@ -261,7 +264,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
           />
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="flex items-center justify-between rounded-lg border border-line/70 bg-slate-50 px-4 py-3">
           <div>
             <div className="text-sm font-semibold text-ink">Cliente ativo</div>
             <p className="text-xs text-slate-500">

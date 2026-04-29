@@ -2,15 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { Users } from "lucide-react";
 
 interface RecrutadorFilterProps {
-  recrutadores: { id: string; nome: string }[];
+  recrutadores: { id: string; nome: string; count?: number }[];
   current?: string;
+  totalAtivas?: number;
 }
 
 export function RecrutadorFilter({
   recrutadores,
   current,
+  totalAtivas,
 }: RecrutadorFilterProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -27,21 +30,28 @@ export function RecrutadorFilter({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <label className="label" htmlFor="rec-filter">
-        Filtrar por recrutadora
-      </label>
+    <div className="relative inline-flex items-center">
+      <Users
+        size={14}
+        className="pointer-events-none absolute left-3 text-slate-400"
+        aria-hidden
+      />
       <select
         id="rec-filter"
-        className="input max-w-xs"
+        aria-label="Filtrar por recrutadora"
+        className="input min-w-[14rem] pl-9 text-sm"
         value={current ?? ""}
         onChange={onChange}
         disabled={isPending}
       >
-        <option value="">Todas</option>
+        <option value="">
+          Todas as recrutadoras
+          {typeof totalAtivas === "number" ? ` (${totalAtivas})` : ""}
+        </option>
         {recrutadores.map((r) => (
           <option key={r.id} value={r.id}>
             {r.nome}
+            {typeof r.count === "number" ? ` (${r.count})` : ""}
           </option>
         ))}
       </select>

@@ -1,21 +1,28 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  Briefcase,
+  CalendarPlus,
   ExternalLink,
   FileText,
+  Layers,
   Linkedin,
   Mail,
   MapPin,
   Phone,
+  TrendingUp,
 } from "lucide-react";
 import type { Senioridade, StatusCandidato } from "@prisma/client";
 import { AppShell } from "@/components/shell/AppShell";
 import { TalentoInfoForm } from "@/components/TalentoInfoForm";
 import { TalentoHeaderActions } from "@/components/TalentoHeaderActions";
 import { VincularTalentoVaga } from "@/components/VincularTalentoVaga";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { formatPhone, getInitials } from "@/lib/format";
+import { formatPhone } from "@/lib/format";
 import { formatDateBR } from "@/lib/business-days";
 
 interface PageProps {
@@ -91,6 +98,11 @@ export default async function TalentoDetailPage({ params }: PageProps) {
 
   const cvUrl = talento.cvArquivoUrl ?? talento.linkCV ?? null;
 
+  const subtitleParts: string[] = [];
+  if (talento.email) subtitleParts.push(talento.email);
+  if (cidadeEstado) subtitleParts.push(cidadeEstado);
+  const subtitle = subtitleParts.join(" · ") || undefined;
+
   return (
     <AppShell
       user={{
@@ -105,132 +117,176 @@ export default async function TalentoDetailPage({ params }: PageProps) {
       ]}
     >
       <div className="mx-auto max-w-6xl space-y-8">
-        <header className="flex flex-col gap-4 animate-fade-in-up md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-4">
-            <span
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-bold shadow-pop ${
-                talento.ativo
-                  ? "bg-gradient-royal text-white"
-                  : "bg-slate-200 text-slate-600"
-              }`}
-              aria-hidden
-            >
-              {getInitials(talento.nome)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                {talento.ativo ? (
-                  <span className="badge-green">Ativo</span>
-                ) : (
-                  <span className="badge-slate">Arquivado</span>
-                )}
-                {talento.senioridade ? (
-                  <span className="badge-royal">
-                    {SENIORIDADE_LABEL[talento.senioridade]}
-                  </span>
-                ) : null}
-                {talento.area ? (
-                  <span className="badge-slate">{talento.area}</span>
-                ) : null}
-                {talento.fonteOrigem === "site" ? (
-                  <span className="badge-slate">Cadastro pelo site</span>
-                ) : null}
-              </div>
-              <h1 className="mt-1 text-2xl font-bold text-ink">
-                {talento.nome}
-              </h1>
-
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                {talento.email ? (
-                  <a
-                    href={`mailto:${talento.email}`}
-                    className="inline-flex items-center gap-1 hover:text-ink"
-                  >
-                    <Mail size={12} />
-                    {talento.email}
-                  </a>
-                ) : null}
-                {talento.telefone ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Phone size={12} />
-                    {formatPhone(talento.telefone)}
-                  </span>
-                ) : null}
-                {cidadeEstado ? (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin size={12} />
-                    {cidadeEstado}
-                  </span>
-                ) : null}
-                {talento.linkedinUrl ? (
-                  <a
-                    href={talento.linkedinUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-royal hover:underline"
-                  >
-                    <Linkedin size={12} />
-                    LinkedIn
-                    <ExternalLink size={10} />
-                  </a>
-                ) : null}
-                {cvUrl ? (
-                  <a
-                    href={cvUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-royal hover:underline"
-                  >
-                    <FileText size={12} />
-                    Currículo
-                    <ExternalLink size={10} />
-                  </a>
-                ) : null}
-              </div>
-
-              {talento.tags.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {talento.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
-                    >
-                      {tag}
+        <header className="flex flex-col gap-4 animate-fade-in-up">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-4">
+              <Avatar
+                nome={talento.nome}
+                size="xl"
+                gradient={talento.ativo}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {talento.ativo ? (
+                    <span className="badge-green">Ativo</span>
+                  ) : (
+                    <span className="badge-slate">Arquivado</span>
+                  )}
+                  {talento.senioridade ? (
+                    <span className="badge-royal">
+                      {SENIORIDADE_LABEL[talento.senioridade]}
                     </span>
-                  ))}
+                  ) : null}
+                  {talento.area ? (
+                    <span className="badge-slate">{talento.area}</span>
+                  ) : null}
+                  {talento.fonteOrigem === "site" ? (
+                    <span className="badge-slate">Cadastro pelo site</span>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          </div>
+                <PageHeader
+                  eyebrow="Talento"
+                  title={talento.nome}
+                  subtitle={subtitle}
+                />
 
-          <div className="flex items-center gap-2">
-            <TalentoHeaderActions
-              talentoId={talento.id}
-              ativo={talento.ativo}
-            />
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                  {talento.telefone ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Phone size={12} />
+                      {formatPhone(talento.telefone)}
+                    </span>
+                  ) : null}
+                  {talento.email ? (
+                    <a
+                      href={`mailto:${talento.email}`}
+                      className="inline-flex items-center gap-1 hover:text-ink"
+                    >
+                      <Mail size={12} />
+                      {talento.email}
+                    </a>
+                  ) : null}
+                  {cidadeEstado ? (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin size={12} />
+                      {cidadeEstado}
+                    </span>
+                  ) : null}
+                  {talento.linkedinUrl ? (
+                    <a
+                      href={talento.linkedinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-royal hover:underline"
+                    >
+                      <Linkedin size={12} />
+                      LinkedIn
+                      <ExternalLink size={10} />
+                    </a>
+                  ) : null}
+                  {cvUrl ? (
+                    <a
+                      href={cvUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-royal hover:underline"
+                    >
+                      <FileText size={12} />
+                      Currículo
+                      <ExternalLink size={10} />
+                    </a>
+                  ) : null}
+                </div>
+
+                {talento.tags.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {talento.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <TalentoHeaderActions
+                talentoId={talento.id}
+                ativo={talento.ativo}
+              />
+            </div>
           </div>
         </header>
 
+        <div
+          className="grid grid-cols-2 gap-4 sm:grid-cols-4 animate-fade-in-up"
+          style={{ animationDelay: "60ms" }}
+        >
+          <StatCard
+            label="Senioridade"
+            value={
+              talento.senioridade
+                ? SENIORIDADE_LABEL[talento.senioridade]
+                : "—"
+            }
+            icon={TrendingUp}
+            tone="royal"
+            size="sm"
+          />
+          <StatCard
+            label="Área"
+            value={talento.area ?? "—"}
+            icon={Layers}
+            tone="lima"
+            size="sm"
+          />
+          <StatCard
+            label="Vagas"
+            value={talento.candidatos.length}
+            icon={Briefcase}
+            tone="amber"
+            size="sm"
+          />
+          <StatCard
+            label="Cadastrado em"
+            value={formatDateBR(talento.createdAt)}
+            icon={CalendarPlus}
+            tone="slate"
+            size="sm"
+          />
+        </div>
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <div
+            className="lg:col-span-2 animate-fade-in-up"
+            style={{ animationDelay: "120ms" }}
+          >
             <TalentoInfoForm talento={talento} />
           </div>
 
-          <aside className="flex flex-col gap-6">
+          <aside
+            className="flex flex-col gap-6 animate-fade-in-up"
+            style={{ animationDelay: "180ms" }}
+          >
             <section className="card p-5">
-              <h2 className="mb-1 text-base font-bold text-ink">
-                Candidaturas
-              </h2>
-              <p className="mb-3 text-xs text-slate-500">
-                Vagas em que este talento já foi considerado.
-              </p>
+              <div className="mb-3">
+                <div className="section-label mb-1">Vagas</div>
+                <h2 className="text-h3 text-ink">Candidaturas</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Vagas em que este talento já foi considerado.
+                </p>
+              </div>
 
               {talento.candidatos.length === 0 ? (
                 <p className="text-sm text-slate-500">
                   Ainda não está em nenhuma vaga.
                 </p>
               ) : (
-                <ul className="flex flex-col divide-y divide-slate-100">
+                <ul className="flex flex-col divide-y divide-line/70">
                   {talento.candidatos.map((c) => (
                     <li
                       key={c.id}
@@ -243,7 +299,7 @@ export default async function TalentoDetailPage({ params }: PageProps) {
                         <div className="truncate text-xs text-slate-500">
                           {c.vaga.cliente}
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
                           <span className={STATUS_BADGE[c.status]}>
                             {STATUS_LABEL[c.status]}
                           </span>

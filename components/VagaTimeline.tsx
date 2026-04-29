@@ -2,9 +2,10 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { Check, Lock } from "lucide-react";
 import type { Vaga } from "@prisma/client";
 import { formatDateBR, formatDiasRestantes } from "@/lib/business-days";
-import { fluxoLabel, prazoCor } from "@/lib/flows";
+import { prazoCor } from "@/lib/flows";
 import type { MarcoComputed, VagaWithDerived } from "@/lib/flows";
 import {
   confirmarEntrevistas,
@@ -22,14 +23,45 @@ interface VagaTimelineProps {
   canEdit: boolean;
 }
 
-const dotByStatus = {
-  done: "bg-royal border-royal",
-  current: "bg-royal border-royal ring-4 ring-royal-100",
-  late: "bg-red-600 border-red-600",
-  pending: "bg-white border-slate-300",
-} as const;
+const DOT_BY_STATUS: Record<MarcoComputed["status"], string> = {
+  done: "bg-lima-500 border-lima-500 text-white",
+  current: "bg-royal border-royal text-white",
+  late: "bg-red-600 border-red-600 text-white",
+  pending: "bg-white border-line-strong text-slate-400",
+};
 
-const PRAZO_TEXT_CLASS: Record<
+const CARD_BY_STATUS: Record<MarcoComputed["status"], string> = {
+  done: "bg-slate-50/40 border-line/70 opacity-75",
+  current:
+    "bg-white border-royal/40 ring-1 ring-royal-100 shadow-glow",
+  late: "bg-white border-l-2 border-l-red-300 border-line/70",
+  pending: "bg-white border-line/70",
+};
+
+const STATUS_CHIP: Record<
+  MarcoComputed["status"],
+  { label: string; className: string }
+> = {
+  done: {
+    label: "Concluído",
+    className:
+      "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100",
+  },
+  current: {
+    label: "Hoje",
+    className: "bg-royal-50 text-royal-700 ring-1 ring-inset ring-royal-100",
+  },
+  late: {
+    label: "Atrasado",
+    className: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-100",
+  },
+  pending: {
+    label: "Próximo",
+    className: "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200",
+  },
+};
+
+const PRAZO_TEXT: Record<
   "verde" | "ambar" | "vermelho" | "neutro",
   string
 > = {
@@ -47,7 +79,7 @@ function diasRestantesTexto(marco: MarcoComputed): {
   if (marco.diasRestantes === null) return null;
   return {
     label: formatDiasRestantes(marco.diasRestantes),
-    className: PRAZO_TEXT_CLASS[prazoCor(marco.diasRestantes)],
+    className: PRAZO_TEXT[prazoCor(marco.diasRestantes)],
   };
 }
 
@@ -72,56 +104,103 @@ export function VagaTimeline({ vaga, derived, canEdit }: VagaTimelineProps) {
 
   return (
     <section className="card p-6">
-      <h2 className="text-lg font-bold mb-1">Linha do tempo</h2>
-      <p className="text-sm text-slate-500 mb-6">
-        Marcos derivados do fluxo {fluxoLabel(vaga.fluxo)}.
-      </p>
+      {vaga.encerrada && (
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-line/70 bg-slate-50/80 px-4 py-3">
+          <Lock size={16} className="mt-0.5 shrink-0 text-slate-500" />
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-ink">Vaga encerrada</p>
+            <p className="text-slate-500">
+              {vaga.dataEncerramento
+                ? `Encerrada em ${formatDateBR(vaga.dataEncerramento)}. Marcos pendentes não disparam mais alertas.`
+                : "Marcos pendentes não disparam mais alertas."}
+            </p>
+          </div>
+        </div>
+      )}
 
-      <ol className="relative flex flex-col">
+      <ol className="relative flex flex-col gap-3">
         {derived.marcos.map((marco, idx) => {
           const isLast = idx === derived.marcos.length - 1;
-          const dotClass = dotByStatus[marco.status];
+          const dotClass = DOT_BY_STATUS[marco.status];
+          const cardClass = CARD_BY_STATUS[marco.status];
+          const chip = STATUS_CHIP[marco.status];
           const dias = diasRestantesTexto(marco);
+          const prevText =
+            marco.status === "late"
+              ? "Venceu em"
+              : marco.dataRealizada
+                ? "Previsto:"
+                : "Previsto para";
 
           return (
-            <li key={marco.key} className="relative flex gap-4 pb-8 last:pb-0">
-              {/* linha vertical */}
+            <li
+              key={marco.key}
+              className="relative flex gap-4 animate-fade-in-up"
+              style={{ animationDelay: `${idx * 40}ms` }}
+            >
+              {/* linha vertical conectora */}
               {!isLast && (
                 <span
                   aria-hidden
-                  className="absolute left-[11px] top-6 -bottom-0 w-px bg-slate-200"
+                  className="absolute left-[15px] top-8 bottom-[-12px] w-px bg-line"
                 />
               )}
 
               {/* bolinha */}
               <span
                 aria-hidden
-                className={`relative z-[1] mt-1 block h-6 w-6 shrink-0 rounded-full border-2 ${dotClass}`}
-              />
+                className={`relative z-[1] mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${dotClass} ${
+                  marco.status === "current" ? "animate-pulse-soft" : ""
+                }`}
+              >
+                {marco.status === "done" && <Check size={14} strokeWidth={3} />}
+                {marco.status === "current" && (
+                  <span className="h-2 w-2 rounded-full bg-white" />
+                )}
+                {marco.status === "late" && (
+                  <span className="text-[11px] font-bold leading-none">!</span>
+                )}
+              </span>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h3 className="font-semibold text-ink">{marco.label}</h3>
-                  <span className="text-sm text-slate-500">
-                    {marco.dataPrevista
-                      ? `${marco.status === "late" ? "Venceu em" : "Previsto:"} ${formatDateBR(marco.dataPrevista)}`
-                      : "Aguardando publicação"}
+              {/* card */}
+              <div
+                className={`flex-1 min-w-0 rounded-xl border p-4 transition-shadow ${cardClass}`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="font-semibold text-ink leading-tight">
+                    {marco.label}
+                  </h3>
+                  <span
+                    className={`badge ${chip.className} shrink-0`}
+                  >
+                    {chip.label}
                   </span>
                 </div>
 
-                <p className="text-sm text-slate-500 mt-0.5">
-                  {marco.description}
+                <p className="mt-1 text-xs text-slate-500">
+                  {marco.dataPrevista
+                    ? `${prevText} ${formatDateBR(marco.dataPrevista)}`
+                    : "Aguardando publicação"}
+                  {dias && (
+                    <>
+                      <span className="mx-1.5 text-slate-300">·</span>
+                      <span className={`font-medium ${dias.className}`}>
+                        {dias.label}
+                      </span>
+                    </>
+                  )}
                 </p>
 
-                {marco.dataRealizada && (
-                  <p className="text-xs text-lima-700 mt-1">
-                    ✓ Confirmado em {formatDateBR(marco.dataRealizada)}
+                {marco.description && (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    {marco.description}
                   </p>
                 )}
 
-                {dias && (
-                  <p className={`text-xs mt-1 font-medium ${dias.className}`}>
-                    {dias.label}
+                {marco.dataRealizada && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-lima-700">
+                    <Check size={12} strokeWidth={3} />
+                    Confirmado em {formatDateBR(marco.dataRealizada)}
                   </p>
                 )}
 
@@ -177,7 +256,6 @@ function MarcoActions({
 
   let actionButton: React.ReactNode = null;
 
-  // Vaga encerrada: não mostra ações (exceto possíveis "Desfazer" no marco done)
   if (vaga.encerrada) {
     actionButton = null;
   } else {
@@ -205,7 +283,9 @@ function MarcoActions({
             <button
               type="button"
               disabled={isPending}
-              onClick={() => run(() => confirmarTriagem(vaga.id), "Triagem confirmada")}
+              onClick={() =>
+                run(() => confirmarTriagem(vaga.id), "Triagem confirmada")
+              }
               className="btn-secondary text-sm"
             >
               {savingLabel("Confirmar triagem")}
@@ -214,13 +294,17 @@ function MarcoActions({
         }
         break;
       case "entrevistas":
-        // Exige publicação (não fazia sentido confirmar entrevistas sem publicar)
         if (!vaga.dataEntrevistasConfirmada && vaga.dataPublicacao) {
           actionButton = (
             <button
               type="button"
               disabled={isPending}
-              onClick={() => run(() => confirmarEntrevistas(vaga.id), "Entrevistas confirmadas")}
+              onClick={() =>
+                run(
+                  () => confirmarEntrevistas(vaga.id),
+                  "Entrevistas confirmadas",
+                )
+              }
               className="btn-secondary text-sm"
             >
               {savingLabel("Confirmar entrevistas")}
@@ -229,13 +313,17 @@ function MarcoActions({
         }
         break;
       case "shortlistInterna":
-        // Exige publicação
         if (!vaga.dataShortlistInterna && vaga.dataPublicacao) {
           actionButton = (
             <button
               type="button"
               disabled={isPending}
-              onClick={() => run(() => confirmarShortlistInterna(vaga.id), "Shortlist interna registrada")}
+              onClick={() =>
+                run(
+                  () => confirmarShortlistInterna(vaga.id),
+                  "Shortlist interna registrada",
+                )
+              }
               className="btn-secondary text-sm"
             >
               {savingLabel("Registrar shortlist interna")}
@@ -244,13 +332,17 @@ function MarcoActions({
         }
         break;
       case "entregaCliente":
-        // Exige shortlist interna registrada
         if (!vaga.shortlistEntregue && vaga.dataShortlistInterna) {
           actionButton = (
             <button
               type="button"
               disabled={isPending}
-              onClick={() => run(() => marcarShortlistEntregue(vaga.id), "Shortlist entregue")}
+              onClick={() =>
+                run(
+                  () => marcarShortlistEntregue(vaga.id),
+                  "Shortlist entregue",
+                )
+              }
               className="btn-lima text-sm"
             >
               {savingLabel("Marcar shortlist como entregue")}
@@ -259,13 +351,17 @@ function MarcoActions({
         }
         break;
       case "retornoCliente":
-        // Só faz sentido depois da entrega
         if (vaga.shortlistEntregue) {
           actionButton = (
             <button
               type="button"
               disabled={isPending}
-              onClick={() => run(() => registrarContatoCliente(vaga.id), "Contato com cliente registrado")}
+              onClick={() =>
+                run(
+                  () => registrarContatoCliente(vaga.id),
+                  "Contato com cliente registrado",
+                )
+              }
               className="btn-secondary text-sm"
             >
               {savingLabel("Registrar contato com cliente")}
@@ -274,7 +370,6 @@ function MarcoActions({
         }
         break;
       case "fechamento":
-        // Encerramento fica nas Informações gerais à direita — não duplicar aqui
         actionButton = null;
         break;
     }

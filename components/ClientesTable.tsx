@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { Mail, Phone, Tag } from "lucide-react";
-import { formatCNPJ, formatPhone, getInitials } from "@/lib/format";
+import { formatCNPJ, formatPhone } from "@/lib/format";
+import { formatRelative } from "@/lib/business-days";
+import { Avatar } from "@/components/ui/Avatar";
 import type { ClienteRow } from "./ClienteTypes";
 
 interface ClientesTableProps {
@@ -19,33 +21,25 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
   }
 
   return (
-    <div className="grid animate-fade-in-up gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {clientes.map((cliente, i) => {
-        const metaParts: string[] = [];
-        if (cliente.segmento) metaParts.push(cliente.segmento);
-        if (cliente.emailPrincipal) metaParts.push(cliente.emailPrincipal);
-        if (cliente.telefone) metaParts.push(formatPhone(cliente.telefone));
-
         return (
           <Link
             key={cliente.id}
             href={`/clientes/${cliente.id}`}
-            className="card-interactive flex flex-col gap-3 p-5 animate-fade-in-up"
+            className={`card-interactive flex flex-col gap-3 p-5 animate-fade-in-up ${
+              !cliente.ativo ? "opacity-60" : ""
+            }`}
             style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
           >
             <div className="flex items-start gap-3">
-              <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                  cliente.ativo
-                    ? "bg-gradient-royal text-white"
-                    : "bg-slate-200 text-slate-600"
-                }`}
-                aria-hidden
-              >
-                {getInitials(cliente.razaoSocial)}
-              </span>
+              <Avatar
+                nome={cliente.razaoSocial}
+                size="md"
+                gradient={cliente.ativo}
+              />
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-base font-semibold text-ink">
+                <h3 className="truncate text-h3 text-ink">
                   {cliente.razaoSocial}
                 </h3>
                 {cliente.nomeFantasia ? (
@@ -54,19 +48,23 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
                   </p>
                 ) : null}
               </div>
+              <span
+                className={`badge-dot shrink-0 ${
+                  cliente.vagasAbertas > 0
+                    ? "bg-lima-50 text-lima-700 ring-lima-100"
+                    : "bg-slate-100 text-slate-600 ring-slate-200"
+                }`}
+              >
+                {cliente._count.vagas}{" "}
+                {cliente._count.vagas === 1 ? "vaga" : "vagas"}
+              </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {!cliente.ativo ? (
+            {!cliente.ativo ? (
+              <div>
                 <span className="badge-slate">Arquivado</span>
-              ) : cliente.vagasAbertas > 0 ? (
-                <span className="badge-lima">
-                  {cliente.vagasAbertas === 1
-                    ? "1 vaga aberta"
-                    : `${cliente.vagasAbertas} vagas abertas`}
-                </span>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
 
             {cliente.cnpj ? (
               <p className="text-xs text-slate-500">
@@ -74,41 +72,40 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
               </p>
             ) : null}
 
-            {metaParts.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                {cliente.segmento ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Tag size={12} className="shrink-0" />
-                    <span className="truncate">{cliente.segmento}</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {cliente.segmento ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  <Tag size={11} className="shrink-0" />
+                  <span className="truncate max-w-[10rem]">
+                    {cliente.segmento}
                   </span>
-                ) : null}
-                {cliente.segmento &&
-                (cliente.emailPrincipal || cliente.telefone) ? (
-                  <span className="text-slate-300">•</span>
-                ) : null}
-                {cliente.emailPrincipal ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Mail size={12} className="shrink-0" />
-                    <span className="truncate">{cliente.emailPrincipal}</span>
+                </span>
+              ) : null}
+              {cliente.emailPrincipal ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  <Mail size={11} className="shrink-0" />
+                  <span className="truncate max-w-[12rem]">
+                    {cliente.emailPrincipal}
                   </span>
-                ) : null}
-                {cliente.emailPrincipal && cliente.telefone ? (
-                  <span className="text-slate-300">•</span>
-                ) : null}
-                {cliente.telefone ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Phone size={12} className="shrink-0" />
-                    <span>{formatPhone(cliente.telefone)}</span>
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+                </span>
+              ) : null}
+              {cliente.telefone ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  <Phone size={11} className="shrink-0" />
+                  <span>{formatPhone(cliente.telefone)}</span>
+                </span>
+              ) : null}
+            </div>
 
-            <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
-              <span>
-                {cliente._count.vagas}{" "}
-                {cliente._count.vagas === 1 ? "vaga no total" : "vagas no total"}
-              </span>
+            <div className="mt-auto flex items-center justify-between border-t border-line/70 pt-3 text-xs text-slate-500">
+              <span>Cadastrado {formatRelative(cliente.createdAt)}</span>
+              {cliente.vagasAbertas > 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-lima-700 font-medium">
+                  <span className="dot bg-lima-500" />
+                  {cliente.vagasAbertas}{" "}
+                  {cliente.vagasAbertas === 1 ? "aberta" : "abertas"}
+                </span>
+              ) : null}
             </div>
           </Link>
         );

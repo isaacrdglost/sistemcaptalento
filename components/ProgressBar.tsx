@@ -7,15 +7,21 @@ interface ProgressBarProps {
 
 export function ProgressBar({ pct, label, atrasada = false }: ProgressBarProps) {
   const clamped = Math.max(0, Math.min(100, pct));
-  const fillClass = atrasada ? "bg-red-500" : "bg-royal";
+  const fillClass = atrasada
+    ? "bg-red-500"
+    : clamped >= 100
+      ? "bg-lima"
+      : "bg-royal";
   return (
     <div>
       {label ? (
-        <div className="mb-1 text-xs text-slate-500">{label}</div>
+        <div className="mb-1 flex items-center justify-between gap-2 text-xs text-slate-500">
+          <span>{label}</span>
+        </div>
       ) : null}
-      <div className="h-2 rounded-full bg-slate-100">
+      <div className="h-1.5 overflow-hidden rounded-full bg-line/70">
         <div
-          className={`h-2 rounded-full ${fillClass} transition-[width]`}
+          className={`h-full rounded-full ${fillClass} transition-[width] duration-500 ease-smooth`}
           style={{ width: `${clamped}%` }}
         />
       </div>

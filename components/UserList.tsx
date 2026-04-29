@@ -1,6 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import {
+  KeyRound,
+  Loader2,
+  Pencil,
+  PowerOff,
+  Power,
+  X,
+} from "lucide-react";
 import type { AppRole } from "@/lib/auth";
 import {
   atualizarUsuario,
@@ -10,6 +18,7 @@ import {
   resetarSenha,
 } from "@/app/admin/actions";
 import { formatDateBR } from "@/lib/business-days";
+import { Avatar } from "@/components/ui/Avatar";
 
 export interface UserListItem {
   id: string;
@@ -37,14 +46,32 @@ interface EditState {
 
 function roleBadge(role: AppRole) {
   if (role === "admin") {
-    return <span className="badge-royal">Admin</span>;
+    return (
+      <span className="badge-dot bg-royal-50 text-royal-700 ring-royal-100">
+        Admin
+      </span>
+    );
   }
-  return <span className="badge-slate">Recrutadora</span>;
+  return (
+    <span className="badge-dot bg-slate-100 text-slate-600 ring-slate-200">
+      Recrutadora
+    </span>
+  );
 }
 
 function statusBadge(ativo: boolean) {
-  if (ativo) return <span className="badge-green">Ativo</span>;
-  return <span className="badge-red">Inativo</span>;
+  if (ativo) {
+    return (
+      <span className="badge-dot bg-emerald-50 text-emerald-700 ring-emerald-100">
+        Ativo
+      </span>
+    );
+  }
+  return (
+    <span className="badge-dot bg-red-50 text-red-700 ring-red-100">
+      Inativo
+    </span>
+  );
 }
 
 export function UserList({ users, currentUserId }: UserListProps) {
@@ -184,9 +211,9 @@ export function UserList({ users, currentUserId }: UserListProps) {
       {showCreate ? (
         <form
           onSubmit={handleCreate}
-          className="card p-4 flex flex-col gap-3"
+          className="card p-4 flex flex-col gap-3 animate-fade-in-up"
         >
-          <h3 className="text-sm font-semibold text-ink">Novo usuário</h3>
+          <h3 className="text-h3 text-ink">Novo usuário</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="label" htmlFor="create-nome">
@@ -278,17 +305,16 @@ export function UserList({ users, currentUserId }: UserListProps) {
 
       <div className="card overflow-x-auto">
         <table className="table-auto w-full text-sm">
-          <thead>
-            <tr className="text-xs uppercase text-slate-500">
-              <th className="px-4 py-3 text-left font-semibold">Nome</th>
-              <th className="px-4 py-3 text-left font-semibold">Email</th>
+          <thead className="bg-slate-50/50 border-b border-line/70">
+            <tr className="text-eyebrow uppercase text-slate-500">
+              <th className="px-4 py-3 text-left font-semibold">Usuário</th>
               <th className="px-4 py-3 text-left font-semibold">Papel</th>
               <th className="px-4 py-3 text-left font-semibold">Status</th>
               <th className="px-4 py-3 text-left font-semibold">Criado em</th>
               <th className="px-4 py-3 text-right font-semibold">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-line/70">
             {users.map((user) => {
               const mode: RowMode = rowModes[user.id] ?? "view";
               const isSelf = user.id === currentUserId;
@@ -299,51 +325,51 @@ export function UserList({ users, currentUserId }: UserListProps) {
                 return (
                   <tr
                     key={user.id}
-                    className="border-t border-slate-200 bg-slate-50 align-top"
+                    className="bg-slate-50/40 align-top"
                   >
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        className="input"
-                        value={edit.nome}
-                        onChange={(e) =>
-                          setEditState((prev) => ({
-                            ...prev,
-                            [user.id]: { ...edit, nome: e.target.value },
-                          }))
-                        }
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="email"
-                        className="input"
-                        value={edit.email}
-                        onChange={(e) =>
-                          setEditState((prev) => ({
-                            ...prev,
-                            [user.id]: { ...edit, email: e.target.value },
-                          }))
-                        }
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        className="input"
-                        value={edit.role}
-                        onChange={(e) =>
-                          setEditState((prev) => ({
-                            ...prev,
-                            [user.id]: {
-                              ...edit,
-                              role: e.target.value as AppRole,
-                            },
-                          }))
-                        }
-                      >
-                        <option value="recruiter">Recrutadora</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                    <td className="px-4 py-3" colSpan={2}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Nome"
+                          value={edit.nome}
+                          onChange={(e) =>
+                            setEditState((prev) => ({
+                              ...prev,
+                              [user.id]: { ...edit, nome: e.target.value },
+                            }))
+                          }
+                        />
+                        <input
+                          type="email"
+                          className="input"
+                          placeholder="Email"
+                          value={edit.email}
+                          onChange={(e) =>
+                            setEditState((prev) => ({
+                              ...prev,
+                              [user.id]: { ...edit, email: e.target.value },
+                            }))
+                          }
+                        />
+                        <select
+                          className="input"
+                          value={edit.role}
+                          onChange={(e) =>
+                            setEditState((prev) => ({
+                              ...prev,
+                              [user.id]: {
+                                ...edit,
+                                role: e.target.value as AppRole,
+                              },
+                            }))
+                          }
+                        >
+                          <option value="recruiter">Recrutadora</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <label className="inline-flex items-center gap-2 text-xs text-ink">
@@ -411,17 +437,26 @@ export function UserList({ users, currentUserId }: UserListProps) {
               return (
                 <tr
                   key={user.id}
-                  className="border-t border-slate-200 align-middle"
+                  className="align-middle transition hover:bg-slate-50/30"
                 >
-                  <td className="px-4 py-3 font-medium text-ink">
-                    {user.nome}
-                    {isSelf ? (
-                      <span className="ml-2 text-[11px] text-slate-500">
-                        (você)
-                      </span>
-                    ) : null}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar nome={user.nome} size="sm" />
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-ink">
+                          {user.nome}
+                          {isSelf ? (
+                            <span className="ml-2 text-[11px] text-slate-500">
+                              (você)
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="truncate text-xs text-slate-500">
+                          {user.email}
+                        </div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{user.email}</td>
                   <td className="px-4 py-3">{roleBadge(user.role)}</td>
                   <td className="px-4 py-3">{statusBadge(user.ativo)}</td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
@@ -429,41 +464,31 @@ export function UserList({ users, currentUserId }: UserListProps) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex flex-col items-end gap-1">
-                      <div className="inline-flex items-center gap-3">
+                      <div className="inline-flex items-center gap-1">
                         <button
                           type="button"
-                          className="text-royal text-xs font-semibold hover:underline"
+                          aria-label="Editar usuário"
+                          title="Editar"
+                          className="btn-icon"
                           onClick={() => setMode(user.id, "edit", user)}
                           disabled={pending}
                         >
-                          Editar
+                          <Pencil size={14} />
                         </button>
-
-                        {!isSelf ? (
-                          user.ativo ? (
-                            <button
-                              type="button"
-                              className="text-amber-700 text-xs font-semibold hover:underline"
-                              onClick={() => handleDesativar(user.id)}
-                              disabled={pending}
-                            >
-                              Desativar
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-emerald-700 text-xs font-semibold hover:underline"
-                              onClick={() => handleReativar(user.id)}
-                              disabled={pending}
-                            >
-                              Reativar
-                            </button>
-                          )
-                        ) : null}
 
                         <button
                           type="button"
-                          className="text-slate-700 text-xs font-semibold hover:underline"
+                          aria-label={
+                            mode === "reset"
+                              ? "Fechar reset"
+                              : "Resetar senha"
+                          }
+                          title={
+                            mode === "reset"
+                              ? "Fechar reset"
+                              : "Resetar senha"
+                          }
+                          className="btn-icon"
                           onClick={() =>
                             setMode(
                               user.id,
@@ -472,8 +497,52 @@ export function UserList({ users, currentUserId }: UserListProps) {
                           }
                           disabled={pending}
                         >
-                          {mode === "reset" ? "Fechar reset" : "Resetar senha"}
+                          {mode === "reset" ? (
+                            <X size={14} />
+                          ) : (
+                            <KeyRound size={14} />
+                          )}
                         </button>
+
+                        {!isSelf ? (
+                          user.ativo ? (
+                            <button
+                              type="button"
+                              aria-label="Desativar usuário"
+                              title="Desativar"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+                              onClick={() => handleDesativar(user.id)}
+                              disabled={pending}
+                            >
+                              {pending ? (
+                                <Loader2
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <PowerOff size={14} />
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              aria-label="Reativar usuário"
+                              title="Reativar"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
+                              onClick={() => handleReativar(user.id)}
+                              disabled={pending}
+                            >
+                              {pending ? (
+                                <Loader2
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <Power size={14} />
+                              )}
+                            </button>
+                          )
+                        ) : null}
                       </div>
 
                       {mode === "reset" ? (

@@ -1,3 +1,4 @@
+import { Briefcase, BriefcaseBusiness, ShieldCheck, Users } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
@@ -6,6 +7,8 @@ import {
   AdminVagasTable,
   type AdminVagaRow,
 } from "@/components/AdminVagasTable";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
 
 export default async function AdminPage() {
   const session = await requireAdmin();
@@ -35,6 +38,13 @@ export default async function AdminPage() {
   const usersData: UserListItem[] = users;
   const vagasData: AdminVagaRow[] = vagas;
 
+  const usuariosAtivos = users.filter((u) => u.ativo).length;
+  const totalRecrutadoras = users.filter(
+    (u) => u.role === "recruiter" && u.ativo,
+  ).length;
+  const totalVagas = vagas.length;
+  const vagasEncerradas = vagas.filter((v) => v.encerrada).length;
+
   return (
     <AppShell
       user={{
@@ -48,26 +58,77 @@ export default async function AdminPage() {
       ]}
     >
       <div className="mx-auto max-w-6xl space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
-            Administração
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Gestão de usuários e visão completa das vagas.
-          </p>
+        <PageHeader
+          eyebrow="Sistema"
+          title="Administração"
+          subtitle="Gestão de usuários e visão completa das vagas"
+        />
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "0ms" }}
+          >
+            <StatCard
+              label="Usuários ativos"
+              value={usuariosAtivos}
+              hint={`de ${users.length} totais`}
+              icon={Users}
+              tone="royal"
+              size="sm"
+            />
+          </div>
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "60ms" }}
+          >
+            <StatCard
+              label="Recrutadoras"
+              value={totalRecrutadoras}
+              icon={ShieldCheck}
+              tone="lima"
+              size="sm"
+            />
+          </div>
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "120ms" }}
+          >
+            <StatCard
+              label="Total de vagas"
+              value={totalVagas}
+              icon={Briefcase}
+              tone="amber"
+              size="sm"
+            />
+          </div>
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "180ms" }}
+          >
+            <StatCard
+              label="Vagas encerradas"
+              value={vagasEncerradas}
+              icon={BriefcaseBusiness}
+              tone="slate"
+              size="sm"
+            />
+          </div>
         </div>
 
-        <section className="space-y-3 animate-fade-in-up">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Usuários
-          </h2>
+        <section
+          className="space-y-3 animate-fade-in-up"
+          style={{ animationDelay: "240ms" }}
+        >
+          <div className="section-label">Usuários</div>
           <UserList users={usersData} currentUserId={session.user.id} />
         </section>
 
-        <section className="space-y-3 animate-fade-in-up">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Todas as vagas
-          </h2>
+        <section
+          className="space-y-3 animate-fade-in-up"
+          style={{ animationDelay: "300ms" }}
+        >
+          <div className="section-label">Todas as vagas</div>
           <AdminVagasTable vagas={vagasData} />
         </section>
       </div>

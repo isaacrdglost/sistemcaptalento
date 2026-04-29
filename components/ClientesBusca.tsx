@@ -34,16 +34,13 @@ export function ClientesBusca({ initial }: ClientesBuscaProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="relative max-w-md">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-        />
+        <Search size={16} className="input-icon" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar por razão social, nome fantasia ou CNPJ"
-          className="input pl-9"
+          className="input input-with-icon"
           aria-label="Buscar clientes"
         />
       </div>

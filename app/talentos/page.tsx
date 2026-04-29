@@ -1,9 +1,12 @@
-import { UserSearch } from "lucide-react";
+import { CalendarPlus, Layers, UserSearch, Users } from "lucide-react";
 import type { Prisma, Senioridade } from "@prisma/client";
 import { AppShell } from "@/components/shell/AppShell";
 import { NovoTalentoModal } from "@/components/NovoTalentoModal";
 import { TalentosFiltros } from "@/components/TalentosFiltros";
 import { TalentoCard, type TalentoCardData } from "@/components/TalentoCard";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 
@@ -79,19 +82,34 @@ export default async function TalentosPage({
     where.tags = { has: tag };
   }
 
-  const [talentos, areasRaw] = await Promise.all([
-    prisma.talento.findMany({
-      where,
-      orderBy: [{ ativo: "desc" }, { createdAt: "desc" }],
-      include: { _count: { select: { candidatos: true } } },
-    }),
-    prisma.talento.findMany({
-      where: { area: { not: null } },
-      distinct: ["area"],
-      select: { area: true },
-      orderBy: { area: "asc" },
-    }),
-  ]);
+  const [talentos, areasRaw, totalAtivos, areasContagem, totalNoMes] =
+    await Promise.all([
+      prisma.talento.findMany({
+        where,
+        orderBy: [{ ativo: "desc" }, { createdAt: "desc" }],
+        include: { _count: { select: { candidatos: true } } },
+      }),
+      prisma.talento.findMany({
+        where: { area: { not: null } },
+        distinct: ["area"],
+        select: { area: true },
+        orderBy: { area: "asc" },
+      }),
+      prisma.talento.count({ where: { ativo: true } }),
+      prisma.talento.groupBy({
+        by: ["area"],
+        where: { ativo: true, area: { not: null } },
+        _count: { _all: true },
+      }),
+      (() => {
+        const inicioMes = new Date();
+        inicioMes.setDate(1);
+        inicioMes.setHours(0, 0, 0, 0);
+        return prisma.talento.count({
+          where: { createdAt: { gte: inicioMes } },
+        });
+      })(),
+    ]);
 
   const areasDisponiveis = areasRaw
     .map((t) => t.area)
@@ -121,6 +139,12 @@ export default async function TalentosPage({
     (tag ? 1 : 0) +
     (incluirArquivados ? 1 : 0);
 
+  const topArea = [...areasContagem].sort(
+    (a, b) => b._count._all - a._count._all,
+  )[0];
+  const topAreaLabel = topArea?.area ?? "—";
+  const topAreaCount = topArea?._count?._all ?? 0;
+
   return (
     <AppShell
       user={{
@@ -133,60 +157,98 @@ export default async function TalentosPage({
         { label: "Talentos" },
       ]}
     >
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-ink">
-              Banco de Talentos
-            </h1>
-            <p className="text-sm text-slate-500">
-              Profissionais cadastrados para consulta rápida em novas vagas.
-            </p>
+      <div className="container-app space-y-6">
+        <PageHeader
+          eyebrow="Pool"
+          title="Banco de Talentos"
+          subtitle="Profissionais cadastrados para consulta rápida em novas vagas."
+          actions={<NovoTalentoModal />}
+        />
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "0ms" }}
+          >
+            <StatCard
+              label="Talentos ativos"
+              value={totalAtivos}
+              icon={Users}
+              tone="royal"
+              size="sm"
+            />
           </div>
-          <NovoTalentoModal />
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "60ms" }}
+          >
+            <StatCard
+              label="Top área"
+              value={topAreaLabel}
+              hint={
+                topAreaCount > 0
+                  ? `${topAreaCount} ${
+                      topAreaCount === 1 ? "talento" : "talentos"
+                    }`
+                  : undefined
+              }
+              icon={Layers}
+              tone="lima"
+              size="sm"
+            />
+          </div>
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "120ms" }}
+          >
+            <StatCard
+              label="Cadastrados este mês"
+              value={totalNoMes}
+              hint="desde o dia 1"
+              icon={CalendarPlus}
+              tone="amber"
+              size="sm"
+            />
+          </div>
         </div>
 
-        <div className="mb-6">
-          <TalentosFiltros
-            initialQ={q ?? ""}
-            initialArea={area ?? ""}
-            initialSenioridade={senioridade ?? ""}
-            initialTag={tag ?? ""}
-            incluirArquivados={incluirArquivados}
-            areas={areasDisponiveis}
-            senioridades={[...SENIORIDADE_VALORES]}
-          />
-        </div>
+        <TalentosFiltros
+          initialQ={q ?? ""}
+          initialArea={area ?? ""}
+          initialSenioridade={senioridade ?? ""}
+          initialTag={tag ?? ""}
+          incluirArquivados={incluirArquivados}
+          areas={areasDisponiveis}
+          senioridades={[...SENIORIDADE_VALORES]}
+        />
 
         {cards.length === 0 ? (
-          <EmptyTalentos hasFilters={totalFiltros > 0} />
+          <EmptyState
+            icon={UserSearch}
+            title="Nenhum talento encontrado"
+            description={
+              totalFiltros > 0
+                ? "Nenhum talento bate com os filtros atuais. Limpe os filtros ou cadastre um novo."
+                : "Comece a construir seu banco de talentos cadastrando o primeiro profissional."
+            }
+            action={
+              <NovoTalentoModal triggerLabel="Cadastrar primeiro talento" />
+            }
+          />
         ) : (
-          <div className="grid animate-fade-in-up gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {cards.map((t) => (
-              <TalentoCard key={t.id} talento={t} />
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {cards.map((t, i) => (
+              <div
+                key={t.id}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+              >
+                <TalentoCard talento={t} />
+              </div>
             ))}
           </div>
         )}
       </div>
     </AppShell>
-  );
-}
-
-function EmptyTalentos({ hasFilters }: { hasFilters: boolean }) {
-  return (
-    <div className="card flex flex-col items-center gap-4 p-12 text-center animate-fade-in-up">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-royal-50 text-royal">
-        <UserSearch size={28} />
-      </div>
-      <div>
-        <h2 className="text-lg font-bold text-ink">Nenhum talento encontrado</h2>
-        <p className="mt-1 max-w-md text-sm text-slate-500">
-          {hasFilters
-            ? "Nenhum talento bate com os filtros atuais. Limpe os filtros ou cadastre um novo."
-            : "Comece a construir seu banco de talentos cadastrando o primeiro profissional."}
-        </p>
-      </div>
-      <NovoTalentoModal triggerLabel="Cadastrar primeiro talento" />
-    </div>
   );
 }

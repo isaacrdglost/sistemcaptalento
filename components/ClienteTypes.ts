@@ -11,6 +11,8 @@ export interface ClienteRow {
   telefone: string | null;
   segmento: string | null;
   ativo: boolean;
+  createdAt: Date;
   _count: { vagas: number };
   vagasAbertas: number;
 }
+

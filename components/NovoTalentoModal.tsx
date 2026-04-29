@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, Loader2, Plus, Upload, X } from "lucide-react";
+import { FileText, Loader2, Plus, Upload, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { criarTalento, type TalentoInput } from "@/app/talentos/actions";
 
@@ -271,7 +271,7 @@ export function NovoTalentoModal({
               role="dialog"
               aria-modal="true"
               aria-labelledby="novo-talento-title"
-              className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-pop max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-xl rounded-2xl bg-white shadow-pop max-h-[90vh] flex flex-col overflow-hidden"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -281,24 +281,37 @@ export function NovoTalentoModal({
                 type="button"
                 aria-label="Fechar"
                 onClick={handleClose}
-                className="absolute right-3 top-3 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-ink"
+                className="absolute right-3 top-3 z-10 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-ink"
               >
                 <X size={16} />
               </button>
 
-              <h2
-                id="novo-talento-title"
-                className="text-lg font-bold text-ink"
-              >
-                Novo talento
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Cadastre um profissional no banco para consulta em novas vagas.
-              </p>
+              <div className="flex items-start gap-3 border-b border-line/70 p-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lima-50 text-lima-700 ring-1 ring-inset ring-lima-100">
+                  <UserPlus size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="section-label mb-0.5">Pool</div>
+                  <h2
+                    id="novo-talento-title"
+                    className="text-h3 text-ink"
+                  >
+                    Novo talento
+                  </h2>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Cadastre um profissional no banco para consulta em novas vagas.
+                  </p>
+                </div>
+              </div>
 
+              <div className="relative flex-1 overflow-y-auto">
+                <div
+                  aria-hidden
+                  className="pointer-events-none sticky top-0 -mb-6 h-6 bg-gradient-to-b from-white to-transparent z-[1]"
+                />
               <form
                 onSubmit={handleSubmit}
-                className="mt-5 flex flex-col gap-4"
+                className="flex flex-col gap-4 p-6"
               >
                 <div>
                   <label htmlFor="tal-nome" className="label">
@@ -461,7 +474,7 @@ export function NovoTalentoModal({
                   <label htmlFor="tal-tags" className="label">
                     Tags
                   </label>
-                  <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 focus-within:ring-2 focus-within:ring-royal-100">
+                  <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line bg-white px-2 py-1.5 focus-within:ring-2 focus-within:ring-royal-100">
                     {form.tags.map((tag) => (
                       <span
                         key={tag}
@@ -506,7 +519,7 @@ export function NovoTalentoModal({
                   <label className="label">Currículo</label>
                   <div className="flex flex-col gap-2">
                     {form.cvArquivoUrl ? (
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-line/70 bg-slate-50 px-3 py-2">
                         <span className="inline-flex min-w-0 items-center gap-2 text-sm text-ink">
                           <FileText size={14} className="shrink-0 text-royal" />
                           <span className="truncate">
@@ -613,6 +626,7 @@ export function NovoTalentoModal({
                   </button>
                 </div>
               </form>
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { FileText, Linkedin } from "lucide-react";
+import { FileText, Linkedin, MapPin } from "lucide-react";
 import type { Senioridade } from "@prisma/client";
-import { getInitials } from "@/lib/format";
+import { Avatar } from "@/components/ui/Avatar";
 import { formatDateBR } from "@/lib/business-days";
 
 export interface TalentoCardData {
@@ -30,6 +30,15 @@ const SENIORIDADE_LABEL: Record<Senioridade, string> = {
   lideranca: "Liderança",
 };
 
+const SENIORIDADE_BADGE: Record<Senioridade, string> = {
+  estagio: "bg-slate-100 text-slate-600 ring-slate-200",
+  junior: "bg-lima-50 text-lima-700 ring-lima-100",
+  pleno: "bg-royal-50 text-royal-700 ring-royal-100",
+  senior: "bg-amber-50 text-amber-700 ring-amber-100",
+  especialista: "bg-indigo-50 text-indigo-700 ring-indigo-100",
+  lideranca: "bg-red-50 text-red-700 ring-red-100",
+};
+
 interface TalentoCardProps {
   talento: TalentoCardData;
 }
@@ -48,29 +57,14 @@ export function TalentoCard({ talento }: TalentoCardProps) {
   return (
     <Link
       href={`/talentos/${talento.id}`}
-      className="card-interactive flex flex-col gap-3 p-5"
+      className={`card-interactive flex h-full flex-col gap-3 p-5 ${
+        !talento.ativo ? "opacity-60" : ""
+      }`}
     >
-      {!talento.ativo ? (
-        <div>
-          <span className="badge-slate">Arquivado</span>
-        </div>
-      ) : null}
-
       <div className="flex items-start gap-3">
-        <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-            talento.ativo
-              ? "bg-gradient-royal text-white"
-              : "bg-slate-200 text-slate-600"
-          }`}
-          aria-hidden
-        >
-          {getInitials(talento.nome)}
-        </span>
+        <Avatar nome={talento.nome} size="md" gradient={talento.ativo} />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-semibold text-ink">
-            {talento.nome}
-          </h3>
+          <h3 className="truncate text-h3 text-ink">{talento.nome}</h3>
           {talento.email ? (
             <p className="truncate text-xs text-slate-500">{talento.email}</p>
           ) : null}
@@ -85,9 +79,17 @@ export function TalentoCard({ talento }: TalentoCardProps) {
         </div>
       </div>
 
+      {!talento.ativo ? (
+        <div>
+          <span className="badge-slate">Arquivado</span>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-1.5">
         {talento.senioridade ? (
-          <span className="badge-royal">
+          <span
+            className={`badge-dot ${SENIORIDADE_BADGE[talento.senioridade]}`}
+          >
             {SENIORIDADE_LABEL[talento.senioridade]}
           </span>
         ) : null}
@@ -95,7 +97,10 @@ export function TalentoCard({ talento }: TalentoCardProps) {
           <span className="badge-slate">{talento.area}</span>
         ) : null}
         {cidadeEstado ? (
-          <span className="badge-slate">{cidadeEstado}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+            <MapPin size={11} className="shrink-0" />
+            {cidadeEstado}
+          </span>
         ) : null}
       </div>
 
@@ -110,14 +115,12 @@ export function TalentoCard({ talento }: TalentoCardProps) {
             </span>
           ))}
           {restoTags > 0 ? (
-            <span className="text-xs text-slate-400">
-              +{restoTags}
-            </span>
+            <span className="text-xs text-slate-400">+{restoTags}</span>
           ) : null}
         </div>
       ) : null}
 
-      <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+      <div className="mt-auto flex items-center justify-between border-t border-line/70 pt-3 text-xs text-slate-500">
         <span>Cadastrado em {formatDateBR(talento.createdAt)}</span>
         <span>
           {talento.candidatosCount}{" "}

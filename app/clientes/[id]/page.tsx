@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus, PlusCircle } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { ClienteInfoForm } from "@/components/ClienteInfoForm";
 import { FluxoBadge } from "@/components/FluxoBadge";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { formatCNPJ, getInitials } from "@/lib/format";
+import { formatCNPJ } from "@/lib/format";
 import { formatDateBR } from "@/lib/business-days";
 
 interface PageProps {
@@ -32,6 +35,11 @@ export default async function ClienteDetailPage({ params }: PageProps) {
   if (!cliente) notFound();
 
   const vagasAbertas = cliente.vagas.filter((v) => !v.encerrada).length;
+  const vagasEncerradas = cliente.vagas.filter((v) => v.encerrada).length;
+
+  const subtitle =
+    cliente.nomeFantasia ??
+    (cliente.cnpj ? `CNPJ ${formatCNPJ(cliente.cnpj)}` : undefined);
 
   return (
     <AppShell
@@ -47,20 +55,15 @@ export default async function ClienteDetailPage({ params }: PageProps) {
       ]}
     >
       <div className="mx-auto max-w-6xl space-y-8">
-        <header className="flex flex-col gap-3 animate-fade-in-up">
+        <div className="flex flex-col gap-4 animate-fade-in-up">
           <div className="flex items-start gap-4">
-            <span
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-bold shadow-pop ${
-                cliente.ativo
-                  ? "bg-gradient-royal text-white"
-                  : "bg-slate-200 text-slate-600"
-              }`}
-              aria-hidden
-            >
-              {getInitials(cliente.razaoSocial)}
-            </span>
+            <Avatar
+              nome={cliente.razaoSocial}
+              size="xl"
+              gradient={cliente.ativo}
+            />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
                 {cliente.ativo ? (
                   <span className="badge-green">Ativo</span>
                 ) : (
@@ -74,26 +77,63 @@ export default async function ClienteDetailPage({ params }: PageProps) {
                   </span>
                 ) : null}
               </div>
-              <h1 className="mt-1 text-2xl font-bold text-ink">
-                {cliente.razaoSocial}
-              </h1>
-              {cliente.nomeFantasia ? (
-                <p className="text-sm text-slate-500">{cliente.nomeFantasia}</p>
-              ) : null}
-              {cliente.cnpj ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  CNPJ {formatCNPJ(cliente.cnpj)}
-                </p>
-              ) : null}
+              <PageHeader
+                eyebrow="Cliente"
+                title={cliente.razaoSocial}
+                subtitle={subtitle}
+                actions={
+                  <Link
+                    href={`/vagas/nova?clienteId=${cliente.id}`}
+                    className="btn-primary"
+                  >
+                    <PlusCircle size={16} className="shrink-0" />
+                    <span>Nova vaga com este cliente</span>
+                  </Link>
+                }
+              />
             </div>
           </div>
-        </header>
+        </div>
+
+        <div
+          className="grid grid-cols-2 gap-4 sm:grid-cols-4 animate-fade-in-up"
+          style={{ animationDelay: "60ms" }}
+        >
+          <StatCard
+            label="Total de vagas"
+            value={cliente.vagas.length}
+            tone="royal"
+            size="sm"
+          />
+          <StatCard
+            label="Ativas"
+            value={vagasAbertas}
+            tone="lima"
+            size="sm"
+          />
+          <StatCard
+            label="Encerradas"
+            value={vagasEncerradas}
+            tone="slate"
+            size="sm"
+          />
+          <StatCard
+            label="Cadastrado em"
+            value={formatDateBR(cliente.createdAt)}
+            tone="amber"
+            size="sm"
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="card p-6 lg:col-span-2">
+          <section
+            className="card p-6 lg:col-span-2 animate-fade-in-up"
+            style={{ animationDelay: "120ms" }}
+          >
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold">Vagas deste cliente</h2>
+                <div className="section-label mb-1">Histórico</div>
+                <h2 className="text-h3 text-ink">Vagas deste cliente</h2>
                 <p className="text-sm text-slate-500">
                   {cliente.vagas.length === 0
                     ? "Nenhuma vaga associada ainda"
@@ -114,7 +154,7 @@ export default async function ClienteDetailPage({ params }: PageProps) {
             </div>
 
             {cliente.vagas.length === 0 ? (
-              <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
+              <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-line/70 bg-slate-50/50 p-10 text-center">
                 <div>
                   <h3 className="text-base font-semibold text-ink">
                     Nenhuma vaga cadastrada para este cliente ainda
@@ -132,21 +172,26 @@ export default async function ClienteDetailPage({ params }: PageProps) {
                 </Link>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="overflow-hidden rounded-xl border border-line/70">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <thead className="bg-slate-50/50 text-left text-eyebrow uppercase text-slate-500 border-b border-line/70">
                     <tr>
-                      <th className="px-4 py-2">Título</th>
-                      <th className="px-4 py-2">Fluxo</th>
-                      <th className="px-4 py-2">Recrutadora</th>
-                      <th className="px-4 py-2">Status</th>
-                      <th className="px-4 py-2">Briefing</th>
-                      <th className="px-4 py-2 text-right">Ação</th>
+                      <th className="px-4 py-2.5 font-semibold">Título</th>
+                      <th className="px-4 py-2.5 font-semibold">Fluxo</th>
+                      <th className="px-4 py-2.5 font-semibold">Recrutadora</th>
+                      <th className="px-4 py-2.5 font-semibold">Status</th>
+                      <th className="px-4 py-2.5 font-semibold">Briefing</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">
+                        Ação
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-line/70 bg-white">
                     {cliente.vagas.map((vaga) => (
-                      <tr key={vaga.id} className="hover:bg-slate-50/60">
+                      <tr
+                        key={vaga.id}
+                        className="group transition hover:bg-slate-50/40"
+                      >
                         <td className="px-4 py-3">
                           <div className="font-medium text-ink">
                             {vaga.titulo}
@@ -166,9 +211,13 @@ export default async function ClienteDetailPage({ params }: PageProps) {
                         </td>
                         <td className="px-4 py-3">
                           {vaga.encerrada ? (
-                            <span className="badge-slate">Encerrada</span>
+                            <span className="badge-dot bg-slate-100 text-slate-600 ring-slate-200">
+                              Encerrada
+                            </span>
                           ) : (
-                            <span className="badge-royal">Ativa</span>
+                            <span className="badge-dot bg-emerald-50 text-emerald-700 ring-emerald-100">
+                              Ativa
+                            </span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-500">
@@ -177,9 +226,13 @@ export default async function ClienteDetailPage({ params }: PageProps) {
                         <td className="px-4 py-3 text-right">
                           <Link
                             href={`/vagas/${vaga.id}`}
-                            className="text-sm font-semibold text-royal hover:underline"
+                            className="inline-flex items-center gap-0.5 text-sm font-semibold text-royal transition hover:text-royal-700"
                           >
                             Abrir
+                            <ChevronRight
+                              size={14}
+                              className="transition-transform group-hover:translate-x-0.5"
+                            />
                           </Link>
                         </td>
                       </tr>
@@ -190,7 +243,10 @@ export default async function ClienteDetailPage({ params }: PageProps) {
             )}
           </section>
 
-          <aside>
+          <aside
+            className="animate-fade-in-up"
+            style={{ animationDelay: "180ms" }}
+          >
             <ClienteInfoForm cliente={cliente} role={session.user.role} />
           </aside>
         </div>

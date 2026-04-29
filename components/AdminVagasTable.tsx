@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import type { Vaga } from "@prisma/client";
 import { computeVagaDerived, fluxoLabel, prazoCor } from "@/lib/flows";
 import { formatDateBR, formatDiasRestantes } from "@/lib/business-days";
@@ -34,8 +35,8 @@ export function AdminVagasTable({ vagas }: AdminVagasTableProps) {
   return (
     <div className="card overflow-x-auto">
       <table className="table-auto w-full text-sm">
-        <thead>
-          <tr className="text-xs uppercase text-slate-500">
+        <thead className="bg-slate-50/50 border-b border-line/70">
+          <tr className="text-eyebrow uppercase text-slate-500">
             <th className="px-4 py-3 text-left font-semibold">Título</th>
             <th className="px-4 py-3 text-left font-semibold">Cliente</th>
             <th className="px-4 py-3 text-left font-semibold">Recrutadora</th>
@@ -46,7 +47,7 @@ export function AdminVagasTable({ vagas }: AdminVagasTableProps) {
             <th className="px-4 py-3 text-right font-semibold">Ações</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line/70">
           {vagas.map((vaga) => {
             const derived = computeVagaDerived(vaga);
             const cor = prazoCor(derived.diasRestantesPrazo);
@@ -57,7 +58,7 @@ export function AdminVagasTable({ vagas }: AdminVagasTableProps) {
             return (
               <tr
                 key={vaga.id}
-                className="border-t border-slate-200 align-middle"
+                className="align-middle transition hover:bg-slate-50/30"
               >
                 <td className="px-4 py-3">
                   <div className="font-medium text-ink">{vaga.titulo}</div>
@@ -83,23 +84,31 @@ export function AdminVagasTable({ vagas }: AdminVagasTableProps) {
                   <div className="text-xs">
                     {vaga.encerrada
                       ? "encerrada"
-                      : formatDiasRestantes(derived.diasRestantesPrazo, { short: true })}
+                      : formatDiasRestantes(derived.diasRestantesPrazo, {
+                          short: true,
+                        })}
                   </div>
                 </td>
                 <td className="px-4 py-3">
                   {vaga.encerrada ? (
-                    <span className="badge-slate">Encerrada</span>
+                    <span className="badge-dot bg-slate-100 text-slate-600 ring-slate-200">
+                      Encerrada
+                    </span>
                   ) : (
-                    <span className="badge-green">Ativa</span>
+                    <span className="badge-dot bg-emerald-50 text-emerald-700 ring-emerald-100">
+                      Ativa
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="inline-flex items-center gap-3">
+                  <div className="inline-flex items-center gap-1">
                     <Link
                       href={`/vagas/${vaga.id}`}
-                      className="text-royal text-xs font-semibold hover:underline"
+                      aria-label="Abrir vaga"
+                      title="Abrir vaga"
+                      className="btn-icon"
                     >
-                      Abrir
+                      <ExternalLink size={14} />
                     </Link>
                     <DeleteVagaButton vagaId={vaga.id} />
                   </div>
