@@ -4,10 +4,12 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -66,8 +68,48 @@ export function Select({
   const listId = `${buttonId}-list`;
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [mounted, setMounted] = useState(false);
+  const [pos, setPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    direction: "down" | "up";
+  } | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updatePosition = useCallback(() => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const estimatedHeight = Math.min(288, options.length * 40 + 8);
+    const direction: "down" | "up" =
+      spaceBelow < estimatedHeight && spaceAbove > spaceBelow ? "up" : "down";
+    setPos({
+      top: direction === "down" ? rect.bottom + 6 : rect.top - 6,
+      left: rect.left,
+      width: rect.width,
+      direction,
+    });
+  }, [options.length]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
 
   const selected = useMemo(
     () => options.find((o) => o.value === value) ?? null,
@@ -79,16 +121,19 @@ export function Select({
     setHighlight(-1);
   }, []);
 
-  // Click fora fecha
+  // Click fora fecha (o popover é portalizado, então precisa marcar via data-attr)
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (wrapperRef.current?.contains(target)) return;
       if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
+        target instanceof Element &&
+        target.closest("[data-select-popover]")
       ) {
-        close();
+        return;
       }
+      close();
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -166,6 +211,7 @@ export function Select({
   return (
     <div ref={wrapperRef} className={cn("relative", className)}>
       <button
+        ref={buttonRef}
         type="button"
         id={buttonId}
         role="combobox"
@@ -214,72 +260,88 @@ export function Select({
         />
       )}
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -4 }}
-            transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-0 right-0 z-50 mt-1.5 origin-top overflow-hidden rounded-xl border border-line/70 bg-white shadow-lg"
-          >
-            <ul
-              ref={listRef}
-              id={listId}
-              role="listbox"
-              aria-labelledby={buttonId}
-              className="max-h-72 overflow-y-auto p-1"
-            >
-              {options.length === 0 ? (
-                <li className="px-3 py-2 text-xs text-slate-400">
-                  Nenhuma opção
-                </li>
-              ) : (
-                options.map((opt, idx) => {
-                  const isSelected = opt.value === value;
-                  const isHighlighted = idx === highlight;
-                  return (
-                    <li
-                      key={opt.value}
-                      data-idx={idx}
-                      role="option"
-                      aria-selected={isSelected}
-                      aria-disabled={opt.disabled || undefined}
-                      onMouseEnter={() => setHighlight(idx)}
-                      onClick={() => pick(opt)}
-                      className={cn(
-                        "flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition",
-                        opt.disabled
-                          ? "cursor-not-allowed text-slate-300"
-                          : isHighlighted
-                            ? "bg-royal-50 text-royal-700"
-                            : "text-ink",
-                        isSelected && "font-semibold",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{opt.label}</span>
-                        {opt.description && (
-                          <span className="block truncate text-xs text-slate-500">
-                            {opt.description}
-                          </span>
-                        )}
-                      </span>
-                      {isSelected && (
-                        <Check
-                          size={14}
-                          strokeWidth={3}
-                          className="shrink-0 text-royal"
-                        />
-                      )}
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && pos && (
+              <motion.div
+                data-select-popover
+                initial={{ opacity: 0, scale: 0.96, y: pos.direction === "down" ? -4 : 4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: pos.direction === "down" ? -4 : 4 }}
+                transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                  position: "fixed",
+                  top: pos.direction === "down" ? pos.top : undefined,
+                  bottom:
+                    pos.direction === "up"
+                      ? window.innerHeight - pos.top
+                      : undefined,
+                  left: pos.left,
+                  width: pos.width,
+                  transformOrigin: pos.direction === "down" ? "top" : "bottom",
+                }}
+                className="z-[60] overflow-hidden rounded-xl border border-line/70 bg-white shadow-xl ring-1 ring-black/5"
+              >
+                <ul
+                  ref={listRef}
+                  id={listId}
+                  role="listbox"
+                  aria-labelledby={buttonId}
+                  className="max-h-72 overflow-y-auto p-1"
+                >
+                  {options.length === 0 ? (
+                    <li className="px-3 py-2 text-xs text-slate-400">
+                      Nenhuma opção
                     </li>
-                  );
-                })
-              )}
-            </ul>
-          </motion.div>
+                  ) : (
+                    options.map((opt, idx) => {
+                      const isSelected = opt.value === value;
+                      const isHighlighted = idx === highlight;
+                      return (
+                        <li
+                          key={opt.value}
+                          data-idx={idx}
+                          role="option"
+                          aria-selected={isSelected}
+                          aria-disabled={opt.disabled || undefined}
+                          onMouseEnter={() => setHighlight(idx)}
+                          onClick={() => pick(opt)}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition",
+                            opt.disabled
+                              ? "cursor-not-allowed text-slate-300"
+                              : isHighlighted
+                                ? "bg-royal-50 text-royal-700"
+                                : "text-ink",
+                            isSelected && "font-semibold",
+                          )}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">{opt.label}</span>
+                            {opt.description && (
+                              <span className="block truncate text-xs text-slate-500">
+                                {opt.description}
+                              </span>
+                            )}
+                          </span>
+                          {isSelected && (
+                            <Check
+                              size={14}
+                              strokeWidth={3}
+                              className="shrink-0 text-royal"
+                            />
+                          )}
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }
