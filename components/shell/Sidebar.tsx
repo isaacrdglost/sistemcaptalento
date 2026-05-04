@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/ui/Logo";
 import type { AppRole } from "@/lib/auth";
 
 interface SidebarProps {
@@ -149,10 +150,7 @@ export function Sidebar({ role }: SidebarProps) {
           href="/"
           className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
-          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-royal text-sm font-bold text-white shadow-pop">
-            C
-            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-lima ring-2 ring-white" />
-          </span>
+          <Logo size={32} variant="brand" />
           {!collapsed && (
             <span className="text-[15px] font-bold tracking-tight">
               CapTalento <span className="text-royal">RH</span>

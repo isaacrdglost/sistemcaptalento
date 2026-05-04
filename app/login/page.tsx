@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LoginChips } from "@/components/LoginChips";
+import { Logo } from "@/components/ui/Logo";
 
 export default async function LoginPage() {
   const session = await getServerSession(authOptions);
@@ -19,26 +20,12 @@ export default async function LoginPage() {
   });
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-7xl items-center px-6">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-royal text-sm font-bold text-white">
-              C
-            </span>
-            <span className="text-sm font-bold tracking-tight">
-              CapTalento <span className="text-royal">RH</span>
-            </span>
-          </div>
-        </div>
-      </header>
-
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-mesh">
       <main className="flex flex-1 items-center justify-center px-6 py-10">
-        <div className="card w-full max-w-2xl p-8">
-          <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold tracking-tight text-ink">
-              Bem-vindo
-            </h1>
+        <div className="card w-full max-w-2xl p-8 sm:p-10">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <Logo size={56} variant="brand" />
+            <h1 className="mt-5 text-h2 text-ink">Bem-vinda de volta</h1>
             <p className="mt-1 text-sm text-slate-500">
               Selecione seu nome para entrar
             </p>
@@ -47,8 +34,9 @@ export default async function LoginPage() {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-xs text-slate-400">
-        CapTalento RH
+      <footer className="pb-6 text-center text-xs text-slate-400">
+        <span className="font-semibold text-slate-500">CapTalento</span> RH ·
+        Plataforma interna
       </footer>
     </div>
   );
