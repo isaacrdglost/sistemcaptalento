@@ -31,10 +31,46 @@ const ORIGEM_PERMITIDA = z.enum([
   "outro",
 ]);
 
+const SENIORIDADE_PERMITIDA = z.enum([
+  "estagio",
+  "junior",
+  "pleno",
+  "senior",
+  "especialista",
+  "lideranca",
+]);
+
+const VOLUME_PERMITIDO = z.enum([
+  "uma_vaga",
+  "duas_a_cinco",
+  "seis_a_dez",
+  "mais_de_dez",
+]);
+
+const URGENCIA_PERMITIDA = z.enum([
+  "imediata",
+  "ate_30d",
+  "ate_60d",
+  "sem_prazo",
+]);
+
+const MODALIDADE_PERMITIDA = z.enum([
+  "clt",
+  "pj",
+  "autonomo",
+  "estagio",
+  "misto",
+]);
+
 const schema = z
   .object({
+    // === Step 1 — dados do cliente ===
     empresa: z.string().trim().min(2, "Empresa obrigatória").max(200),
+    /// Segmento/setor da empresa (ex: "Tech", "Saúde", "Varejo")
+    segmento: z.string().trim().max(100).optional().nullable(),
     contato: z.string().trim().max(200).optional().nullable(),
+    /// Cargo da pessoa que está preenchendo o form
+    contatoCargo: z.string().trim().max(200).optional().nullable(),
     email: z
       .string()
       .trim()
@@ -44,13 +80,26 @@ const schema = z
       .nullable()
       .or(z.literal("").transform(() => null)),
     telefone: z.string().trim().max(40).optional().nullable(),
-    cargo: z.string().trim().max(200).optional().nullable(),
+
+    // === Step 2 — dados da vaga ===
+    /// Cargo/posição que a empresa precisa preencher (diferente de contatoCargo)
+    cargoInteresse: z.string().trim().max(200).optional().nullable(),
+    senioridade: SENIORIDADE_PERMITIDA.optional().nullable(),
+    volumeVagas: VOLUME_PERMITIDO.optional().nullable(),
+    urgencia: URGENCIA_PERMITIDA.optional().nullable(),
+    /// Faixa salarial / orçamento — texto livre ("R$ 5-7k", "Até 10k", etc)
+    orcamento: z.string().trim().max(200).optional().nullable(),
+    modalidade: MODALIDADE_PERMITIDA.optional().nullable(),
+    jaTrabalhouComAgencia: z.boolean().optional().nullable(),
+
+    // === Mensagem livre + tracking ===
     mensagem: z.string().trim().max(5000).optional().nullable(),
     origem: ORIGEM_PERMITIDA.optional(),
     origemDescricao: z.string().trim().max(200).optional().nullable(),
     utmSource: z.string().trim().max(120).optional().nullable(),
     utmMedium: z.string().trim().max(120).optional().nullable(),
     utmCampaign: z.string().trim().max(120).optional().nullable(),
+
     // honeypot: campo invisível no form humano. Se preenchido, é bot.
     website: z.string().optional().nullable(),
   })
@@ -129,11 +178,23 @@ export async function POST(req: Request) {
   try {
     await prisma.lead.create({
       data: {
+        // step 1
         razaoSocial: data.empresa,
+        segmento: data.segmento ?? null,
         contatoNome: data.contato ?? null,
-        contatoCargo: data.cargo ?? null,
+        contatoCargo: data.contatoCargo ?? null,
         email: data.email ? data.email.toLowerCase() : null,
         telefone: data.telefone ?? null,
+        // step 2 — qualificação
+        cargoInteresse: data.cargoInteresse ?? null,
+        senioridadeBuscada: data.senioridade ?? null,
+        volumeVagas: data.volumeVagas ?? null,
+        urgencia: data.urgencia ?? null,
+        orcamento: data.orcamento ?? null,
+        modalidade: data.modalidade ?? null,
+        jaTrabalhouComAgencia:
+          data.jaTrabalhouComAgencia ?? null,
+        // mensagem livre + tracking
         mensagem: data.mensagem ?? null,
         origem: data.origem ?? "site",
         origemDescricao: data.origemDescricao ?? null,

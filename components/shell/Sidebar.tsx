@@ -15,6 +15,7 @@ import {
   Target,
   Trophy,
   Briefcase,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,12 @@ const SECTIONS: NavSection[] = [
         href: "/admin",
         label: "Administração",
         icon: Settings,
+        exact: true,
+      },
+      {
+        href: "/admin/templates",
+        label: "Templates",
+        icon: MessageSquare,
       },
     ],
   },

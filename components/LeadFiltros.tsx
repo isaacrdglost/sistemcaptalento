@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { AlarmClock, Search, Tag as TagIcon, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Select } from "@/components/ui/Select";
+import { cn } from "@/lib/utils";
 
 export type LeadTab =
   | "meus"
@@ -28,6 +30,8 @@ interface LeadFiltrosProps {
   initialTab: LeadTab;
   initialQ: string;
   initialOrigem: string;
+  initialTag?: string;
+  initialStuck?: boolean;
   incluirArquivados: boolean;
   isAdmin: boolean;
   counts?: {
@@ -39,10 +43,21 @@ interface LeadFiltrosProps {
   };
 }
 
+interface QueryShape {
+  tab: LeadTab;
+  q: string;
+  origem: string;
+  tag: string;
+  stuck: boolean;
+  incluirArquivados: boolean;
+}
+
 export function LeadFiltros({
   initialTab,
   initialQ,
   initialOrigem,
+  initialTag = "",
+  initialStuck = false,
   incluirArquivados: initialIncluirArquivados,
   isAdmin,
   counts,
@@ -51,34 +66,38 @@ export function LeadFiltros({
   const [tab, setTab] = useState<LeadTab>(initialTab);
   const [q, setQ] = useState(initialQ);
   const [origem, setOrigem] = useState(initialOrigem);
+  const [tag, setTag] = useState(initialTag);
+  const [stuck, setStuck] = useState(initialStuck);
   const [incluirArquivados, setIncluirArquivados] = useState(
     initialIncluirArquivados,
   );
   const [, startTransition] = useTransition();
 
+  // Sub-estado do popover de tag (autocomplete idêntico ao LeadTagInput)
+  const [tagDraft, setTagDraft] = useState("");
+  const [tagOpen, setTagOpen] = useState(false);
+  const [tagHighlight, setTagHighlight] = useState(-1);
+  const [todasTags, setTodasTags] = useState<string[]>([]);
+  const [tagsCarregadas, setTagsCarregadas] = useState(false);
+  const tagWrapperRef = useRef<HTMLDivElement | null>(null);
+  const tagInputRef = useRef<HTMLInputElement | null>(null);
+  const tagDebounceRef = useRef<number | null>(null);
+
   const mountedRef = useRef(false);
   const lastQuerySentRef = useRef<string | null>(null);
 
-  function buildQueryString(next: {
-    tab: LeadTab;
-    q: string;
-    origem: string;
-    incluirArquivados: boolean;
-  }): string {
+  function buildQueryString(next: QueryShape): string {
     const params = new URLSearchParams();
     params.set("tab", next.tab);
     if (next.q.trim()) params.set("q", next.q.trim());
     if (next.origem) params.set("origem", next.origem);
+    if (next.tag) params.set("tag", next.tag);
+    if (next.stuck) params.set("stuck", "1");
     if (next.incluirArquivados) params.set("incluirArquivados", "1");
     return params.toString();
   }
 
-  function pushParams(next: {
-    tab: LeadTab;
-    q: string;
-    origem: string;
-    incluirArquivados: boolean;
-  }) {
+  function pushParams(next: QueryShape) {
     const qs = buildQueryString(next);
     if (qs === lastQuerySentRef.current) return;
     lastQuerySentRef.current = qs;
@@ -96,12 +115,14 @@ export function LeadFiltros({
         tab,
         q,
         origem,
+        tag,
+        stuck,
         incluirArquivados,
       });
       return;
     }
     const handle = window.setTimeout(() => {
-      pushParams({ tab, q, origem, incluirArquivados });
+      pushParams({ tab, q, origem, tag, stuck, incluirArquivados });
     }, 300);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,19 +131,140 @@ export function LeadFiltros({
   // Imediato pros demais
   useEffect(() => {
     if (!mountedRef.current) return;
-    pushParams({ tab, q, origem, incluirArquivados });
+    pushParams({ tab, q, origem, tag, stuck, incluirArquivados });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, origem, incluirArquivados]);
+  }, [tab, origem, tag, stuck, incluirArquivados]);
+
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await fetch("/api/leads/tags", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { tags?: string[] };
+      if (Array.isArray(data.tags)) {
+        setTodasTags(data.tags);
+      }
+    } catch {
+      // silencioso
+    } finally {
+      setTagsCarregadas(true);
+    }
+  }, []);
+
+  // Click fora fecha o popover de tag
+  useEffect(() => {
+    if (!tagOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (
+        tagWrapperRef.current &&
+        !tagWrapperRef.current.contains(e.target as Node)
+      ) {
+        setTagOpen(false);
+        setTagHighlight(-1);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [tagOpen]);
+
+  // Debounce do fetch quando o draft muda
+  useEffect(() => {
+    if (tagDebounceRef.current) {
+      window.clearTimeout(tagDebounceRef.current);
+    }
+    tagDebounceRef.current = window.setTimeout(() => {
+      void fetchTags();
+    }, 300);
+    return () => {
+      if (tagDebounceRef.current) {
+        window.clearTimeout(tagDebounceRef.current);
+      }
+    };
+  }, [tagDraft, fetchTags]);
+
+  const tagSugestoes = useMemo(() => {
+    const draftNorm = tagDraft.trim().toLowerCase();
+    const filtradas = todasTags.filter((t) => {
+      if (!draftNorm) return true;
+      return t.toLowerCase().startsWith(draftNorm);
+    });
+    return filtradas.slice(0, 8);
+  }, [tagDraft, todasTags]);
+
+  useEffect(() => {
+    if (tagHighlight >= tagSugestoes.length) {
+      setTagHighlight(tagSugestoes.length > 0 ? 0 : -1);
+    }
+  }, [tagSugestoes.length, tagHighlight]);
+
+  function aplicarTag(raw: string) {
+    const t = raw.trim();
+    if (!t) return;
+    setTag(t);
+    setTagDraft("");
+    setTagOpen(false);
+    setTagHighlight(-1);
+  }
+
+  function handleTagKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (tagOpen && tagHighlight >= 0 && tagSugestoes[tagHighlight]) {
+        aplicarTag(tagSugestoes[tagHighlight]);
+      } else if (tagDraft.trim()) {
+        aplicarTag(tagDraft);
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      if (tagSugestoes.length === 0) return;
+      e.preventDefault();
+      setTagOpen(true);
+      setTagHighlight((prev) => {
+        const next = prev + 1;
+        return next >= tagSugestoes.length ? 0 : next;
+      });
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      if (tagSugestoes.length === 0) return;
+      e.preventDefault();
+      setTagOpen(true);
+      setTagHighlight((prev) => {
+        const next = prev - 1;
+        return next < 0 ? tagSugestoes.length - 1 : next;
+      });
+      return;
+    }
+    if (e.key === "Escape") {
+      if (tagOpen) {
+        e.preventDefault();
+        setTagOpen(false);
+        setTagHighlight(-1);
+      }
+    }
+  }
+
+  function limparTag() {
+    setTag("");
+  }
+
+  function limparStuck() {
+    setStuck(false);
+  }
 
   function limpar() {
     setQ("");
     setOrigem("");
     setIncluirArquivados(false);
     setTab(initialTab);
+    setTag("");
+    setStuck(false);
     pushParams({
       tab: initialTab,
       q: "",
       origem: "",
+      tag: "",
+      stuck: false,
       incluirArquivados: false,
     });
   }
@@ -154,7 +296,13 @@ export function LeadFiltros({
   });
 
   const algumFiltro =
-    q.trim().length > 0 || origem.length > 0 || incluirArquivados;
+    q.trim().length > 0 ||
+    origem.length > 0 ||
+    incluirArquivados ||
+    tag.length > 0 ||
+    stuck;
+
+  const tagPopoverAberto = tagOpen && tagSugestoes.length > 0;
 
   return (
     <div className="card p-4 space-y-4">
@@ -189,6 +337,37 @@ export function LeadFiltros({
         })}
       </div>
 
+      {(tag || stuck) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {tag ? (
+            <button
+              type="button"
+              onClick={limparTag}
+              className="inline-flex items-center gap-1.5 rounded-full bg-royal-50 px-3 py-1 text-xs font-semibold text-royal-700 ring-1 ring-inset ring-royal-100 transition hover:bg-royal-100"
+              aria-label={`Remover filtro de tag ${tag}`}
+            >
+              <TagIcon size={11} />
+              <span>
+                Tag: <span className="font-bold">{tag}</span>
+              </span>
+              <X size={11} />
+            </button>
+          ) : null}
+          {stuck ? (
+            <button
+              type="button"
+              onClick={limparStuck}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-100 transition hover:bg-amber-100"
+              aria-label="Remover filtro de leads parados"
+            >
+              <AlarmClock size={11} />
+              <span>Parados &gt;7d</span>
+              <X size={11} />
+            </button>
+          ) : null}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
         <div className="relative flex-1 md:max-w-md">
           <Search size={16} className="input-icon" />
@@ -219,6 +398,64 @@ export function LeadFiltros({
           ariaLabel="Filtrar por origem"
           options={ORIGEM_OPCOES}
         />
+
+        <div ref={tagWrapperRef} className="relative md:max-w-[12rem] md:flex-1">
+          <TagIcon size={14} className="input-icon" />
+          <input
+            ref={tagInputRef}
+            type="text"
+            value={tagDraft}
+            onChange={(e) => {
+              setTagDraft(e.target.value);
+              setTagOpen(true);
+            }}
+            onFocus={() => {
+              setTagOpen(true);
+              if (!tagsCarregadas) void fetchTags();
+            }}
+            onKeyDown={handleTagKey}
+            placeholder="Filtrar por tag"
+            aria-label="Filtrar por tag"
+            aria-autocomplete="list"
+            aria-expanded={tagPopoverAberto}
+            className="input input-with-icon"
+          />
+          <AnimatePresence>
+            {tagPopoverAberto && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: -4 }}
+                transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute left-0 right-0 z-50 mt-1.5 origin-top overflow-hidden rounded-xl border border-line/70 bg-white shadow-lg"
+              >
+                <ul role="listbox" className="max-h-64 overflow-y-auto p-1">
+                  {tagSugestoes.map((t, idx) => {
+                    const ativo = idx === tagHighlight;
+                    return (
+                      <li
+                        key={t}
+                        role="option"
+                        aria-selected={ativo}
+                        onMouseEnter={() => setTagHighlight(idx)}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          aplicarTag(t);
+                        }}
+                        className={cn(
+                          "cursor-pointer rounded-lg px-3 py-1.5 text-sm transition",
+                          ativo ? "bg-royal-50 text-royal-700" : "text-ink",
+                        )}
+                      >
+                        {t}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <label className="inline-flex cursor-pointer items-center gap-2">
           <input

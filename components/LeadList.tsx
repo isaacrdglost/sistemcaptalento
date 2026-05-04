@@ -39,6 +39,7 @@ export type LeadRow = {
   responsavelId: string | null;
   responsavel: { id: string; nome: string } | null;
   arquivado: boolean;
+  tags: string[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -142,6 +143,26 @@ export function LeadList({
                     {lead.nomeFantasia ? (
                       <div className="text-xs text-slate-500">
                         {lead.nomeFantasia}
+                      </div>
+                    ) : null}
+                    {lead.tags && lead.tags.length > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        {lead.tags.slice(0, 3).map((t) => (
+                          <span
+                            key={t}
+                            className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 ring-1 ring-inset ring-slate-200"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                        {lead.tags.length > 3 ? (
+                          <span
+                            className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200"
+                            title={lead.tags.slice(3).join(", ")}
+                          >
+                            +{lead.tags.length - 3}
+                          </span>
+                        ) : null}
                       </div>
                     ) : null}
                     {lead.arquivado ? (

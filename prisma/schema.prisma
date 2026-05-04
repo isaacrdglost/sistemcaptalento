@@ -107,6 +107,33 @@ enum TipoAtividadeLead {
   lead_atribuido
 }
 
+enum VolumeVagas {
+  uma_vaga
+  duas_a_cinco
+  seis_a_dez
+  mais_de_dez
+}
+
+enum UrgenciaContratacao {
+  imediata
+  ate_30d
+  ate_60d
+  sem_prazo
+}
+
+enum ModalidadeContratacao {
+  clt
+  pj
+  autonomo
+  estagio
+  misto
+}
+
+enum CanalTemplate {
+  whatsapp
+  email
+}
+
 model User {
   id        String   @id @default(cuid())
   nome      String
@@ -332,6 +359,19 @@ model Lead {
   dataPerda       DateTime?
 
   obs             String?
+
+  // Tags livres (criadas pelo comercial com autocomplete das tags já usadas)
+  tags            String[]    @default([])
+
+  // Qualificação B2B — entender a vaga que a empresa precisa preencher
+  cargoInteresse        String?
+  senioridadeBuscada    Senioridade?
+  volumeVagas           VolumeVagas?
+  urgencia              UrgenciaContratacao?
+  orcamento             String?
+  modalidade            ModalidadeContratacao?
+  jaTrabalhouComAgencia Boolean?
+
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -341,6 +381,25 @@ model Lead {
   @@index([estagio, arquivado])
   @@index([responsavelId])
   @@index([clienteId])
+  @@index([updatedAt])
+}
+
+model MensagemTemplate {
+  id        String        @id @default(cuid())
+  nome      String
+  canal     CanalTemplate
+  /// Apenas pra canal "email"
+  assunto   String?
+  /// Suporta placeholders: {{nome}}, {{empresa}}, {{contatoNome}},
+  /// {{cargoInteresse}}, {{recrutadora}} (= responsável.nome). Tudo
+  /// que não estiver preenchido é trocado por string vazia (silencioso).
+  corpo     String
+  ordem     Int           @default(0)
+  ativo     Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([canal, ativo, ordem])
 }
 
 model AtividadeLead {

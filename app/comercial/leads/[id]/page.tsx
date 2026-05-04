@@ -1,33 +1,22 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, CalendarDays } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Avatar } from "@/components/ui/Avatar";
-import { LeadInfoForm } from "@/components/LeadInfoForm";
-import { LeadDetailActions } from "@/components/LeadDetailActions";
 import { LeadAtividadesPanel } from "@/components/LeadAtividadesPanel";
+import { LeadDetailHero } from "@/components/LeadDetailHero";
+import { LeadStatusPills } from "@/components/LeadStatusPills";
+import { LeadQualificacaoForm } from "@/components/LeadQualificacaoForm";
+import { LeadTagsCard } from "@/components/LeadTagsCard";
+import { LeadHistoricoStatus } from "@/components/LeadHistoricoStatus";
+import { LeadUtmCard } from "@/components/LeadUtmCard";
+import { BannerLeadGanho, BannerLeadPerdido } from "@/components/LeadStatusBanners";
+import { LeadEdicaoCompletaCard } from "@/components/LeadEdicaoCompletaCard";
+import { LeadContatoCard } from "@/components/LeadContatoCard";
 import { prisma } from "@/lib/prisma";
 import { requireComercial } from "@/lib/session";
-import {
-  descricaoEstagioLead,
-  descricaoOrigemLead,
-} from "@/lib/activity-lead";
-import { formatDateBR } from "@/lib/business-days";
-import type { EstagioLead } from "@prisma/client";
+import { buscarPossiveisDuplicatas } from "@/app/comercial/actions";
 
 interface PageProps {
   params: { id: string };
 }
-
-const ESTAGIO_BADGE: Record<EstagioLead, string> = {
-  novo: "badge-dot bg-slate-100 text-slate-600 ring-slate-200",
-  qualificado: "badge-dot bg-royal-50 text-royal-700 ring-royal-100",
-  proposta: "badge-dot bg-amber-50 text-amber-700 ring-amber-100",
-  negociacao: "badge-dot bg-amber-50 text-amber-700 ring-amber-100",
-  ganho: "badge-dot bg-lima-50 text-lima-700 ring-lima-100",
-  perdido: "badge-dot bg-red-50 text-red-700 ring-red-100",
-};
 
 export default async function LeadDetailPage({ params }: PageProps) {
   const session = await requireComercial();
@@ -58,9 +47,24 @@ export default async function LeadDetailPage({ params }: PageProps) {
 
   const podeAgir =
     isAdmin || lead.responsavelId === null || lead.responsavelId === userId;
-  const semResponsavel = lead.responsavelId === null;
-  const subtitle =
-    lead.nomeFantasia ?? lead.contatoNome ?? undefined;
+  const finalizado = lead.estagio === "ganho" || lead.estagio === "perdido";
+  const podeEditarCampos = podeAgir && !finalizado;
+
+  const [duplicatas, templates] = await Promise.all([
+    buscarPossiveisDuplicatas({
+      email: lead.email,
+      telefone: lead.telefone,
+      cnpj: lead.cnpj,
+      excluirId: lead.id,
+    }),
+    prisma.mensagemTemplate.findMany({
+      where: { ativo: true },
+      orderBy: [{ canal: "asc" }, { ordem: "asc" }],
+    }),
+  ]);
+
+  const templatesWhatsapp = templates.filter((t) => t.canal === "whatsapp");
+  const templatesEmail = templates.filter((t) => t.canal === "email");
 
   const atividades = lead.atividades.map((a) => ({
     id: a.id,
@@ -72,6 +76,10 @@ export default async function LeadDetailPage({ params }: PageProps) {
     createdAt: a.createdAt,
     autor: a.autor,
   }));
+
+  const temUtm = Boolean(
+    lead.utmSource || lead.utmMedium || lead.utmCampaign,
+  );
 
   return (
     <AppShell
@@ -86,139 +94,60 @@ export default async function LeadDetailPage({ params }: PageProps) {
         { label: lead.razaoSocial },
       ]}
     >
-      <div className="mx-auto max-w-6xl space-y-6">
-        <Link
-          href="/comercial/leads"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-ink"
-        >
-          <ArrowLeft size={14} />
-          Voltar para o pipeline
-        </Link>
-
-        <PageHeader
-          eyebrow={`Lead · ${descricaoEstagioLead(lead.estagio)}`}
-          title={lead.razaoSocial}
-          subtitle={subtitle}
-          actions={
-            <LeadDetailActions
-              leadId={lead.id}
-              semResponsavel={semResponsavel}
-              arquivado={lead.arquivado}
-              podeAgir={podeAgir}
-              estagio={lead.estagio}
-              razaoSocial={lead.razaoSocial}
-            />
-          }
+      <div className="container-app space-y-6">
+        <LeadDetailHero
+          lead={lead}
+          podeAgir={podeAgir}
+          duplicatas={duplicatas}
+          templatesWhatsapp={templatesWhatsapp}
+          templatesEmail={templatesEmail}
         />
 
-        {lead.cliente ? (
-          <div
-            className="card flex flex-wrap items-center justify-between gap-3 border-lima-100 bg-lima-50/60 p-4"
-          >
-            <div className="text-sm text-lima-700">
-              <span className="font-semibold">
-                Lead convertido em cliente
-              </span>
-              {lead.dataGanho ? (
-                <span className="text-lima-700/80">
-                  {" "}em {formatDateBR(lead.dataGanho)}
-                </span>
-              ) : null}
-              .
-            </div>
-            <Link
-              href={`/clientes/${lead.cliente.id}`}
-              className="inline-flex items-center gap-1 text-sm font-semibold text-lima-700 transition hover:text-lima-700/80"
-            >
-              Ver cliente
-              <ArrowUpRight size={14} />
-            </Link>
-          </div>
+        {lead.estagio === "ganho" && lead.cliente ? (
+          <BannerLeadGanho
+            dataGanho={lead.dataGanho}
+            cliente={lead.cliente}
+          />
         ) : null}
 
         {lead.estagio === "perdido" ? (
-          <div className="card flex flex-wrap items-start justify-between gap-3 border-red-100 bg-red-50/50 p-4">
-            <div className="text-sm text-red-700">
-              <div className="font-semibold">Lead marcado como perdido</div>
-              {lead.dataPerda ? (
-                <div className="text-xs text-red-700/80 mt-0.5">
-                  em {formatDateBR(lead.dataPerda)}
-                </div>
-              ) : null}
-              {lead.motivoPerda ? (
-                <div className="mt-2 text-sm text-red-700/90">
-                  <span className="font-semibold">Motivo:</span>{" "}
-                  {lead.motivoPerda}
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <BannerLeadPerdido
+            dataPerda={lead.dataPerda}
+            motivoPerda={lead.motivoPerda}
+          />
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="card p-4">
-            <div className="section-label mb-1.5">Estágio</div>
-            <span className={ESTAGIO_BADGE[lead.estagio]}>
-              {descricaoEstagioLead(lead.estagio)}
-            </span>
-          </div>
-          <div className="card p-4">
-            <div className="section-label mb-1.5">Origem</div>
-            <span className="badge-slate">
-              {descricaoOrigemLead(lead.origem)}
-            </span>
-          </div>
-          <div className="card p-4">
-            <div className="section-label mb-1.5">Responsável</div>
-            {lead.responsavel ? (
-              <div className="flex items-center gap-2">
-                <Avatar nome={lead.responsavel.nome} size="xs" />
-                <span className="text-sm font-medium text-ink truncate">
-                  {lead.responsavel.nome}
-                </span>
-              </div>
-            ) : (
-              <span className="text-sm text-slate-400">—</span>
-            )}
-          </div>
-          <div className="card p-4">
-            <div className="section-label mb-1.5">Criado em</div>
-            <div className="flex items-center gap-1.5 text-sm text-ink">
-              <CalendarDays size={14} className="text-slate-400" />
-              {formatDateBR(lead.createdAt)}
-            </div>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="card p-6 lg:col-span-2">
-            <div className="mb-5">
-              <div className="section-label mb-1">Detalhes</div>
-              <h2 className="text-h3 text-ink">Informações do lead</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {podeAgir
-                  ? "Edite os dados e salve as alterações."
-                  : "Você está visualizando este lead em modo somente-leitura."}
-              </p>
-            </div>
-            <LeadInfoForm
-              mode="edit"
+          <div className="space-y-6 lg:col-span-2">
+            <LeadContatoCard lead={lead} />
+            <LeadQualificacaoForm
               lead={lead}
-              readOnly={
-                !podeAgir ||
-                lead.estagio === "ganho" ||
-                lead.estagio === "perdido"
-              }
+              podeAgir={podeEditarCampos}
             />
-          </section>
-
-          <aside className="lg:col-span-1">
             <LeadAtividadesPanel
               leadId={lead.id}
               atividades={atividades}
               currentUserId={userId}
               isAdmin={isAdmin}
               podeAgir={podeAgir}
+            />
+          </div>
+          <aside className="space-y-6">
+            <LeadStatusPills
+              leadId={lead.id}
+              estagioAtual={lead.estagio}
+              razaoSocial={lead.razaoSocial}
+              podeAgir={podeAgir}
+            />
+            <LeadTagsCard
+              lead={lead}
+              podeAgir={podeEditarCampos}
+            />
+            {temUtm ? <LeadUtmCard lead={lead} /> : null}
+            <LeadHistoricoStatus atividades={atividades} />
+            <LeadEdicaoCompletaCard
+              lead={lead}
+              podeAgir={podeEditarCampos}
             />
           </aside>
         </div>

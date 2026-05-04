@@ -40,6 +40,37 @@ const estagioEnum = z.enum([
   "perdido",
 ]);
 
+const senioridadeEnum = z.enum([
+  "estagio",
+  "junior",
+  "pleno",
+  "senior",
+  "especialista",
+  "lideranca",
+]);
+
+const volumeEnum = z.enum([
+  "uma_vaga",
+  "duas_a_cinco",
+  "seis_a_dez",
+  "mais_de_dez",
+]);
+
+const urgenciaEnum = z.enum([
+  "imediata",
+  "ate_30d",
+  "ate_60d",
+  "sem_prazo",
+]);
+
+const modalidadeEnum = z.enum([
+  "clt",
+  "pj",
+  "autonomo",
+  "estagio",
+  "misto",
+]);
+
 const leadSchema = z.object({
   razaoSocial: z.string().trim().min(2, "Razão social obrigatória").max(200),
   nomeFantasia: z.string().trim().max(200).nullable().optional(),
@@ -61,9 +92,137 @@ const leadSchema = z.object({
   origem: origemEnum.default("outro"),
   origemDescricao: z.string().trim().max(200).nullable().optional(),
   obs: z.string().max(5000).nullable().optional(),
+
+  // Tags livres — comercial digita pra categorizar (max 20 tags, max 40 chars cada)
+  tags: z
+    .array(z.string().trim().min(1).max(40))
+    .max(20)
+    .default([]),
+
+  // Qualificação B2B
+  cargoInteresse: z.string().trim().max(200).nullable().optional(),
+  senioridadeBuscada: senioridadeEnum.nullable().optional(),
+  volumeVagas: volumeEnum.nullable().optional(),
+  urgencia: urgenciaEnum.nullable().optional(),
+  orcamento: z.string().trim().max(200).nullable().optional(),
+  modalidade: modalidadeEnum.nullable().optional(),
+  jaTrabalhouComAgencia: z.boolean().nullable().optional(),
 });
 
 export type LeadInput = z.input<typeof leadSchema>;
+
+export interface LeadDuplicateCandidate {
+  id: string;
+  razaoSocial: string;
+  contatoNome: string | null;
+  email: string | null;
+  telefone: string | null;
+  cnpj: string | null;
+  estagio: string;
+  match: "email" | "telefone" | "cnpj";
+}
+
+/**
+ * Procura leads existentes que batem por email, telefone (só dígitos) ou
+ * CNPJ. Retorna até 3 candidatos pra UI mostrar como possíveis duplicatas.
+ * Compara em qualquer estágio (incluindo arquivados/ganhos/perdidos) — o
+ * comercial decide o que fazer com a info.
+ */
+export async function buscarPossiveisDuplicatas(
+  input: {
+    email?: string | null;
+    telefone?: string | null;
+    cnpj?: string | null;
+    excluirId?: string;
+  },
+): Promise<LeadDuplicateCandidate[]> {
+  const session = await requireUser();
+  if (!session) return [];
+
+  const conditions: Prisma.LeadWhereInput[] = [];
+  const emailNorm = input.email?.toLowerCase().trim();
+  const telefoneDigits = input.telefone?.replace(/\D+/g, "");
+  const cnpjDigits = input.cnpj?.replace(/\D+/g, "");
+
+  if (emailNorm && emailNorm.length > 0) {
+    conditions.push({ email: { equals: emailNorm, mode: "insensitive" } });
+  }
+  if (telefoneDigits && telefoneDigits.length >= 8) {
+    // Telefones podem estar com formatação variada — usa contains nos
+    // últimos 8 dígitos (cobre variação de DDD/código país).
+    const tail = telefoneDigits.slice(-8);
+    conditions.push({ telefone: { contains: tail } });
+  }
+  if (cnpjDigits && cnpjDigits.length === 14) {
+    conditions.push({ cnpj: cnpjDigits });
+  }
+  if (conditions.length === 0) return [];
+
+  const where: Prisma.LeadWhereInput = {
+    OR: conditions,
+    ...(input.excluirId ? { NOT: { id: input.excluirId } } : {}),
+  };
+
+  const candidatos = await prisma.lead.findMany({
+    where,
+    take: 3,
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      razaoSocial: true,
+      contatoNome: true,
+      email: true,
+      telefone: true,
+      cnpj: true,
+      estagio: true,
+    },
+  });
+
+  return candidatos.map((c) => {
+    let match: LeadDuplicateCandidate["match"] = "email";
+    if (cnpjDigits && c.cnpj === cnpjDigits) match = "cnpj";
+    else if (
+      telefoneDigits &&
+      c.telefone &&
+      c.telefone.replace(/\D+/g, "").endsWith(telefoneDigits.slice(-8))
+    )
+      match = "telefone";
+    else if (
+      emailNorm &&
+      c.email &&
+      c.email.toLowerCase() === emailNorm
+    )
+      match = "email";
+    return { ...c, match };
+  });
+}
+
+/**
+ * Lista as tags distintas usadas em qualquer lead, ordenadas por
+ * frequência de uso. Útil pra autocomplete no input de tags.
+ */
+export async function listarTagsLeads(): Promise<string[]> {
+  const session = await requireUser();
+  if (!session) return [];
+  // Postgres não tem unnest direto via Prisma — fazemos no JS
+  const leads = await prisma.lead.findMany({
+    where: { tags: { isEmpty: false } },
+    select: { tags: true },
+    take: 500,
+  });
+  const counts = new Map<string, number>();
+  for (const l of leads) {
+    for (const t of l.tags) {
+      const key = t.trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([t]) => t)
+    .slice(0, 50);
+}
 
 async function requireUser() {
   const session = await getServerSession(authOptions);
@@ -137,6 +296,15 @@ export async function criarLead(
         origem: parsed.data.origem,
         origemDescricao: parsed.data.origemDescricao ?? null,
         obs: parsed.data.obs ?? null,
+        tags: parsed.data.tags ?? [],
+        cargoInteresse: parsed.data.cargoInteresse ?? null,
+        senioridadeBuscada: parsed.data.senioridadeBuscada ?? null,
+        volumeVagas: parsed.data.volumeVagas ?? null,
+        urgencia: parsed.data.urgencia ?? null,
+        orcamento: parsed.data.orcamento ?? null,
+        modalidade: parsed.data.modalidade ?? null,
+        jaTrabalhouComAgencia:
+          parsed.data.jaTrabalhouComAgencia ?? null,
         // Quem cria assume responsabilidade. Admin pode reatribuir depois.
         responsavelId: session.user.id,
       },
@@ -201,6 +369,15 @@ export async function atualizarLead(
         origem: parsed.data.origem,
         origemDescricao: parsed.data.origemDescricao ?? null,
         obs: parsed.data.obs ?? null,
+        tags: parsed.data.tags ?? [],
+        cargoInteresse: parsed.data.cargoInteresse ?? null,
+        senioridadeBuscada: parsed.data.senioridadeBuscada ?? null,
+        volumeVagas: parsed.data.volumeVagas ?? null,
+        urgencia: parsed.data.urgencia ?? null,
+        orcamento: parsed.data.orcamento ?? null,
+        modalidade: parsed.data.modalidade ?? null,
+        jaTrabalhouComAgencia:
+          parsed.data.jaTrabalhouComAgencia ?? null,
       },
     });
     revalidate(id);

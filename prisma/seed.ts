@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { TEMPLATES_DEFAULT } from "../lib/lead-templates";
 
 const prisma = new PrismaClient();
 
@@ -43,6 +44,30 @@ async function main() {
       },
     });
     comercialEmail = comercial.email;
+  }
+
+  // Templates iniciais de mensagem (WhatsApp + email). Idempotente:
+  // só insere se ainda não houver nenhum cadastrado, pra preservar
+  // edições que o admin já tenha feito.
+  const totalTemplates = await prisma.mensagemTemplate.count();
+  if (totalTemplates === 0) {
+    for (const t of TEMPLATES_DEFAULT) {
+      await prisma.mensagemTemplate.create({
+        data: {
+          nome: t.nome,
+          canal: t.canal,
+          assunto: "assunto" in t ? t.assunto : null,
+          corpo: t.corpo,
+          ordem: t.ordem,
+          ativo: true,
+        },
+      });
+    }
+    console.log(`Seed: ${TEMPLATES_DEFAULT.length} templates criados.`);
+  } else {
+    console.log(
+      `Seed: ${totalTemplates} templates já cadastrados — preservados.`,
+    );
   }
 
   console.log("Seed concluído:");

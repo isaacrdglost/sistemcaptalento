@@ -11,6 +11,10 @@ import {
 } from "@/components/LeadFiltros";
 import { LeadList, type LeadRow } from "@/components/LeadList";
 import { LeadsViewSwitcher } from "@/components/LeadsViewSwitcher";
+import {
+  BannerLeadsParados,
+  type LeadParadoItem,
+} from "@/components/BannerLeadsParados";
 import { prisma } from "@/lib/prisma";
 import { requireComercial } from "@/lib/session";
 
@@ -30,6 +34,8 @@ interface PageProps {
     tab?: string;
     q?: string;
     origem?: string;
+    tag?: string;
+    stuck?: string;
     incluirArquivados?: string;
   };
 }
@@ -50,7 +56,13 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const q = (searchParams?.q ?? "").trim();
   const origemParam = (searchParams?.origem ?? "").trim();
   const origem = ORIGENS_VALIDAS.has(origemParam) ? origemParam : "";
+  const tagParam = (searchParams?.tag ?? "").trim().slice(0, 40);
+  const stuck = searchParams?.stuck === "1";
   const incluirArquivados = searchParams?.incluirArquivados === "1";
+
+  // Limite de "parado" — sem update há mais de 7 dias
+  const limiteParado = new Date();
+  limiteParado.setDate(limiteParado.getDate() - 7);
 
   const where: Prisma.LeadWhereInput = {};
   if (tab === "meus") {
@@ -79,6 +91,14 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     where.origem = origem as Prisma.LeadWhereInput["origem"];
   }
 
+  if (tagParam) {
+    where.tags = { has: tagParam };
+  }
+
+  if (stuck) {
+    where.updatedAt = { lt: limiteParado };
+  }
+
   if (q.length > 0) {
     where.OR = [
       { razaoSocial: { contains: q, mode: "insensitive" } },
@@ -93,6 +113,20 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     arquivado: false,
   };
 
+  // Filtro do banner: respeita visibilidade do usuário (admin vê todos,
+  // comercial só os seus + sem responsável). Sempre considera apenas
+  // estágios ativos e não arquivados.
+  const paradosWhere: Prisma.LeadWhereInput = {
+    estagio: { in: ["novo", "qualificado", "proposta", "negociacao"] },
+    arquivado: false,
+    updatedAt: { lt: limiteParado },
+    ...(isAdmin
+      ? {}
+      : {
+          OR: [{ responsavelId: userId }, { responsavelId: null }],
+        }),
+  };
+
   const [
     leads,
     totalGeral,
@@ -101,6 +135,8 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     countTodos,
     countGanhos,
     countPerdidos,
+    paradosExemplos,
+    paradosTotal,
   ] = await Promise.all([
     prisma.lead.findMany({
       where,
@@ -128,6 +164,17 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         ? { estagio: "perdido" }
         : { estagio: "perdido", responsavelId: userId },
     }),
+    prisma.lead.findMany({
+      where: paradosWhere,
+      select: {
+        id: true,
+        razaoSocial: true,
+        responsavel: { select: { id: true, nome: true } },
+      },
+      take: 6,
+      orderBy: { updatedAt: "asc" },
+    }),
+    prisma.lead.count({ where: paradosWhere }),
   ]);
 
   const rows: LeadRow[] = leads.map((l) => ({
@@ -144,8 +191,17 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       ? { id: l.responsavel.id, nome: l.responsavel.nome }
       : null,
     arquivado: l.arquivado,
+    tags: l.tags,
     createdAt: l.createdAt,
     updatedAt: l.updatedAt,
+  }));
+
+  const paradosItens: LeadParadoItem[] = paradosExemplos.map((p) => ({
+    id: p.id,
+    razaoSocial: p.razaoSocial,
+    responsavel: p.responsavel
+      ? { id: p.responsavel.id, nome: p.responsavel.nome }
+      : null,
   }));
 
   const hasAnyLead = totalGeral > 0;
@@ -187,6 +243,11 @@ export default async function LeadsPage({ searchParams }: PageProps) {
           />
         ) : (
           <>
+            <BannerLeadsParados
+              total={paradosTotal}
+              exemplos={paradosItens}
+            />
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div
                 className="animate-fade-in-up"
@@ -230,6 +291,8 @@ export default async function LeadsPage({ searchParams }: PageProps) {
               initialTab={tab}
               initialQ={q}
               initialOrigem={origem}
+              initialTag={tagParam}
+              initialStuck={stuck}
               incluirArquivados={incluirArquivados}
               isAdmin={isAdmin}
               counts={{
