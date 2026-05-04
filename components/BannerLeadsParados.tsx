@@ -47,7 +47,7 @@ export function BannerLeadsParados({
       role="status"
     >
       <Link
-        href="/comercial/leads?stuck=1"
+        href="/comercial?stuck=1"
         className="group flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/40 p-4 transition hover:border-amber-300 hover:bg-amber-50/70 sm:flex-row sm:items-center sm:gap-4"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">

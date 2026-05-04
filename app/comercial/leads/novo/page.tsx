@@ -17,21 +17,21 @@ export default async function NovoLeadPage() {
       }}
       breadcrumbs={[
         { label: "Vendas" },
-        { label: "Pipeline", href: "/comercial/leads" },
+        { label: "CRM", href: "/comercial" },
         { label: "Novo lead" },
       ]}
     >
       <div className="mx-auto max-w-3xl space-y-6">
         <Link
-          href="/comercial/leads"
+          href="/comercial"
           className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-ink"
         >
           <ArrowLeft size={14} />
-          Voltar para o pipeline
+          Voltar para o CRM
         </Link>
 
         <PageHeader
-          eyebrow="Pipeline"
+          eyebrow="Vendas"
           title="Novo lead"
           subtitle="Cadastre uma empresa que entrou no radar comercial. Você pode complementar dados depois."
         />

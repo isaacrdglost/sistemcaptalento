@@ -287,7 +287,7 @@ export default async function MetasPage() {
                     </h2>
                   </div>
                   <Link
-                    href="/comercial/leads?tab=ganhos"
+                    href="/comercial?tab=ganhos"
                     className="text-xs font-semibold text-royal transition hover:text-royal-700"
                   >
                     Ver todos →

@@ -240,17 +240,9 @@ export function CommandMenu() {
             {(isComercial || isAdmin) && (
               <NavItem
                 value="nav-comercial"
-                label="Painel comercial"
-                icon={<Briefcase size={16} className="text-slate-500" />}
-                onSelect={() => go("/comercial")}
-              />
-            )}
-            {(isComercial || isAdmin) && (
-              <NavItem
-                value="nav-leads"
-                label="Pipeline de leads"
+                label="CRM"
                 icon={<Target size={16} className="text-slate-500" />}
-                onSelect={() => go("/comercial/leads")}
+                onSelect={() => go("/comercial")}
               />
             )}
             {(isComercial || isAdmin) && (

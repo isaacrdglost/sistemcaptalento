@@ -257,7 +257,6 @@ function podeAgirSobreLead(opts: {
 
 function revalidate(leadId?: string) {
   revalidatePath("/comercial");
-  revalidatePath("/comercial/leads");
   if (leadId) revalidatePath(`/comercial/leads/${leadId}`);
 }
 

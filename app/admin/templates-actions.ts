@@ -52,7 +52,6 @@ function revalidate(): void {
   revalidatePath("/admin");
   revalidatePath("/admin/templates");
   revalidatePath("/comercial");
-  revalidatePath("/comercial/leads");
 }
 
 export async function criarTemplate(

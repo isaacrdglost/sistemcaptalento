@@ -1,31 +1,67 @@
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  Hourglass,
-  Plus,
-  Sparkles,
-  Target,
-  TrendingUp,
-} from "lucide-react";
+import { Plus, Target } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { AppShell } from "@/components/shell/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Avatar } from "@/components/ui/Avatar";
-import { ComercialPegarLeadButton } from "@/components/ComercialPegarLeadButton";
+import {
+  LeadFiltros,
+  type LeadTab,
+} from "@/components/LeadFiltros";
+import { LeadList, type LeadRow } from "@/components/LeadList";
+import { LeadsViewSwitcher } from "@/components/LeadsViewSwitcher";
+import {
+  BannerLeadsParados,
+  type LeadParadoItem,
+} from "@/components/BannerLeadsParados";
 import { FollowupsPendentes } from "@/components/FollowupsPendentes";
 import { prisma } from "@/lib/prisma";
 import { requireComercial } from "@/lib/session";
-import { descricaoEstagioLead } from "@/lib/activity-lead";
-import { formatRelative } from "@/lib/business-days";
 
-export default async function ComercialPage() {
+const ORIGENS_VALIDAS = new Set([
+  "prospeccao_ativa",
+  "indicacao",
+  "site",
+  "redes_sociais",
+  "linkedin",
+  "evento",
+  "whatsapp",
+  "outro",
+]);
+
+interface PageProps {
+  searchParams?: {
+    tab?: string;
+    q?: string;
+    origem?: string;
+    tag?: string;
+    stuck?: string;
+    incluirArquivados?: string;
+  };
+}
+
+function parseTab(raw: string | undefined, isAdmin: boolean): LeadTab {
+  if (raw === "meus" || raw === "sem_responsavel") return raw;
+  if (raw === "ganhos" || raw === "perdidos") return raw;
+  if (raw === "todos" && isAdmin) return "todos";
+  return isAdmin ? "todos" : "meus";
+}
+
+export default async function ComercialPage({ searchParams }: PageProps) {
   const session = await requireComercial();
+  const isAdmin = session.user.role === "admin";
+  const userId = session.user.id;
 
-  const inicioMes = new Date();
-  inicioMes.setDate(1);
-  inicioMes.setHours(0, 0, 0, 0);
+  const tab = parseTab(searchParams?.tab, isAdmin);
+  const q = (searchParams?.q ?? "").trim();
+  const origemParam = (searchParams?.origem ?? "").trim();
+  const origem = ORIGENS_VALIDAS.has(origemParam) ? origemParam : "";
+  const tagParam = (searchParams?.tag ?? "").trim().slice(0, 40);
+  const stuck = searchParams?.stuck === "1";
+  const incluirArquivados = searchParams?.incluirArquivados === "1";
+
+  const limiteParado = new Date();
+  limiteParado.setDate(limiteParado.getDate() - 7);
 
   const agora = new Date();
   const hoje7DiasAtras = new Date(agora);
@@ -35,42 +71,111 @@ export default async function ComercialPage() {
   hoje3DiasAFrente.setDate(hoje3DiasAFrente.getDate() + 3);
   hoje3DiasAFrente.setHours(23, 59, 59, 999);
 
+  const where: Prisma.LeadWhereInput = {};
+  if (tab === "meus") {
+    where.responsavelId = userId;
+  } else if (tab === "sem_responsavel") {
+    where.responsavelId = null;
+  }
+
+  if (tab === "ganhos") {
+    where.estagio = "ganho";
+  } else if (tab === "perdidos") {
+    where.estagio = "perdido";
+  } else {
+    where.estagio = { notIn: ["ganho", "perdido"] };
+  }
+
+  if (!incluirArquivados) {
+    where.arquivado = false;
+  }
+
+  if (origem) {
+    where.origem = origem as Prisma.LeadWhereInput["origem"];
+  }
+
+  if (tagParam) {
+    where.tags = { has: tagParam };
+  }
+
+  if (stuck) {
+    where.updatedAt = { lt: limiteParado };
+  }
+
+  if (q.length > 0) {
+    where.OR = [
+      { razaoSocial: { contains: q, mode: "insensitive" } },
+      { nomeFantasia: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { contatoNome: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const ativosNotIn: Prisma.LeadWhereInput = {
+    estagio: { notIn: ["ganho", "perdido"] },
+    arquivado: false,
+  };
+
+  const paradosWhere: Prisma.LeadWhereInput = {
+    estagio: { in: ["novo", "qualificado", "proposta", "negociacao"] },
+    arquivado: false,
+    updatedAt: { lt: limiteParado },
+    ...(isAdmin
+      ? {}
+      : {
+          OR: [{ responsavelId: userId }, { responsavelId: null }],
+        }),
+  };
+
   const [
-    countNovos,
-    countQualificados,
-    countProposta,
-    countNegociacao,
-    countSemResponsavel,
-    countMesCriados,
+    leads,
     totalGeral,
-    leadsRecentes,
-    leadsSemResponsavel,
+    countMeus,
+    countSem,
+    countTodos,
+    countGanhos,
+    countPerdidos,
+    paradosExemplos,
+    paradosTotal,
     followupsRaw,
   ] = await Promise.all([
-    prisma.lead.count({ where: { estagio: "novo", arquivado: false } }),
-    prisma.lead.count({
-      where: { estagio: "qualificado", arquivado: false },
+    prisma.lead.findMany({
+      where,
+      orderBy: [{ updatedAt: "desc" }],
+      include: {
+        responsavel: { select: { id: true, nome: true } },
+      },
+      take: 200,
     }),
-    prisma.lead.count({ where: { estagio: "proposta", arquivado: false } }),
-    prisma.lead.count({
-      where: { estagio: "negociacao", arquivado: false },
-    }),
-    prisma.lead.count({
-      where: { responsavelId: null, arquivado: false },
-    }),
-    prisma.lead.count({ where: { createdAt: { gte: inicioMes } } }),
     prisma.lead.count(),
-    prisma.lead.findMany({
-      where: { arquivado: false },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: { responsavel: { select: { id: true, nome: true } } },
+    prisma.lead.count({
+      where: { ...ativosNotIn, responsavelId: userId },
+    }),
+    prisma.lead.count({
+      where: { ...ativosNotIn, responsavelId: null },
+    }),
+    prisma.lead.count({ where: ativosNotIn }),
+    prisma.lead.count({
+      where: isAdmin
+        ? { estagio: "ganho" }
+        : { estagio: "ganho", responsavelId: userId },
+    }),
+    prisma.lead.count({
+      where: isAdmin
+        ? { estagio: "perdido" }
+        : { estagio: "perdido", responsavelId: userId },
     }),
     prisma.lead.findMany({
-      where: { responsavelId: null, arquivado: false },
-      orderBy: { createdAt: "desc" },
-      take: 5,
+      where: paradosWhere,
+      select: {
+        id: true,
+        razaoSocial: true,
+        responsavel: { select: { id: true, nome: true } },
+      },
+      take: 6,
+      orderBy: { updatedAt: "asc" },
     }),
+    prisma.lead.count({ where: paradosWhere }),
     prisma.atividadeLead.findMany({
       where: {
         tipo: "followup_agendado",
@@ -80,8 +185,8 @@ export default async function ComercialPage() {
           lte: hoje3DiasAFrente,
         },
         OR: [
-          { autorId: session.user.id },
-          { lead: { responsavelId: session.user.id } },
+          { autorId: userId },
+          { lead: { responsavelId: userId } },
         ],
       },
       include: {
@@ -92,6 +197,33 @@ export default async function ComercialPage() {
       take: 20,
     }),
   ]);
+
+  const rows: LeadRow[] = leads.map((l) => ({
+    id: l.id,
+    razaoSocial: l.razaoSocial,
+    nomeFantasia: l.nomeFantasia,
+    contatoNome: l.contatoNome,
+    email: l.email,
+    telefone: l.telefone,
+    estagio: l.estagio,
+    origem: l.origem,
+    responsavelId: l.responsavelId,
+    responsavel: l.responsavel
+      ? { id: l.responsavel.id, nome: l.responsavel.nome }
+      : null,
+    arquivado: l.arquivado,
+    tags: l.tags,
+    createdAt: l.createdAt,
+    updatedAt: l.updatedAt,
+  }));
+
+  const paradosItens: LeadParadoItem[] = paradosExemplos.map((p) => ({
+    id: p.id,
+    razaoSocial: p.razaoSocial,
+    responsavel: p.responsavel
+      ? { id: p.responsavel.id, nome: p.responsavel.nome }
+      : null,
+  }));
 
   const followups = followupsRaw
     .filter((f) => f.agendadoPara !== null)
@@ -105,6 +237,7 @@ export default async function ComercialPage() {
     }));
 
   const hasAnyLead = totalGeral > 0;
+  const tabFinalizada = tab === "ganhos" || tab === "perdidos";
 
   return (
     <AppShell
@@ -113,13 +246,13 @@ export default async function ComercialPage() {
         email: session.user.email ?? "",
         role: session.user.role,
       }}
-      breadcrumbs={[{ label: "Vendas" }, { label: "Painel" }]}
+      breadcrumbs={[{ label: "Vendas" }, { label: "CRM" }]}
     >
       <div className="container-app space-y-6">
         <PageHeader
           eyebrow="Vendas"
-          title="Painel comercial"
-          subtitle="Visão geral do funil, leads sem responsável e o que entrou no mês."
+          title="CRM"
+          subtitle="Pipeline de leads, caixa de entrada e follow-ups num só lugar."
           actions={
             <Link href="/comercial/leads/novo" className="btn-primary">
               <Plus size={16} className="shrink-0" />
@@ -130,9 +263,9 @@ export default async function ComercialPage() {
 
         {!hasAnyLead ? (
           <EmptyState
-            icon={Sparkles}
-            title="Comece pelo primeiro lead"
-            description="Cadastre uma oportunidade que entrou no radar comercial. A partir daí o painel ganha vida com métricas e follow-ups."
+            icon={Target}
+            title="Nenhum lead cadastrado ainda"
+            description="Cadastre um lead manualmente ou aguarde a primeira captura via formulário do site. A partir daí você organiza tudo aqui no pipeline."
             action={
               <Link href="/comercial/leads/novo" className="btn-primary">
                 <Plus size={14} />
@@ -146,211 +279,55 @@ export default async function ComercialPage() {
               <div className="animate-fade-in-up">
                 <FollowupsPendentes
                   followups={followups}
-                  currentUserId={session.user.id}
+                  currentUserId={userId}
                 />
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div
-                className="animate-fade-in-up"
-                style={{ animationDelay: "0ms" }}
-              >
-                <StatCard
-                  label="Novos"
-                  value={countNovos}
-                  hint="aguardando triagem"
-                  icon={Target}
-                  tone="slate"
-                  size="sm"
-                />
-              </div>
-              <div
-                className="animate-fade-in-up"
-                style={{ animationDelay: "60ms" }}
-              >
-                <StatCard
-                  label="Qualificados"
-                  value={countQualificados}
-                  hint="prontos pra avançar"
-                  icon={CheckCircle2}
-                  tone="royal"
-                  size="sm"
-                />
-              </div>
-              <div
-                className="animate-fade-in-up"
-                style={{ animationDelay: "120ms" }}
-              >
-                <StatCard
-                  label="Em proposta"
-                  value={countProposta}
-                  hint="aguardando retorno"
-                  icon={Hourglass}
-                  tone="amber"
-                  size="sm"
-                />
-              </div>
-              <div
-                className="animate-fade-in-up"
-                style={{ animationDelay: "180ms" }}
-              >
-                <StatCard
-                  label="Em negociação"
-                  value={countNegociacao}
-                  hint="quase fechando"
-                  icon={TrendingUp}
-                  tone="lima"
-                  size="sm"
-                />
-              </div>
-            </div>
+            <BannerLeadsParados
+              total={paradosTotal}
+              exemplos={paradosItens}
+            />
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="card flex items-center justify-between gap-3 p-4">
-                <div>
-                  <div className="section-label mb-1">Caixa de entrada</div>
-                  <div className="text-2xl font-bold text-ink">
-                    {countSemResponsavel}
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    leads sem responsável aguardando alguém pegar
-                  </p>
-                </div>
-                <Link
-                  href="/comercial/leads?tab=sem_responsavel"
-                  className="btn-secondary text-xs"
-                >
-                  Ver caixa
-                  <ArrowUpRight size={12} />
-                </Link>
-              </div>
-              <div className="card flex items-center justify-between gap-3 p-4">
-                <div>
-                  <div className="section-label mb-1">Entrada no mês</div>
-                  <div className="text-2xl font-bold text-ink">
-                    {countMesCriados}
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    leads criados desde o dia 1
-                  </p>
-                </div>
-                <Link
-                  href="/comercial/leads"
-                  className="btn-secondary text-xs"
-                >
-                  Ver pipeline
-                  <ArrowUpRight size={12} />
-                </Link>
-              </div>
-            </div>
+            <LeadFiltros
+              initialTab={tab}
+              initialQ={q}
+              initialOrigem={origem}
+              initialTag={tagParam}
+              initialStuck={stuck}
+              incluirArquivados={incluirArquivados}
+              isAdmin={isAdmin}
+              counts={{
+                meus: countMeus,
+                semResponsavel: countSem,
+                todos: countTodos,
+                ganhos: countGanhos,
+                perdidos: countPerdidos,
+              }}
+            />
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <section className="card p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <div className="section-label mb-1">Recentes</div>
-                    <h2 className="text-h3 text-ink">
-                      Últimos leads cadastrados
-                    </h2>
-                  </div>
-                  <Link
-                    href="/comercial/leads"
-                    className="text-xs font-semibold text-royal transition hover:text-royal-700"
-                  >
-                    Ver tudo →
-                  </Link>
-                </div>
-                {leadsRecentes.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    Nenhum lead recente.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-line/70">
-                    {leadsRecentes.map((lead, i) => (
-                      <li
-                        key={lead.id}
-                        className="animate-fade-in-up py-2.5"
-                        style={{
-                          animationDelay: `${Math.min(i, 6) * 30}ms`,
-                        }}
-                      >
-                        <Link
-                          href={`/comercial/leads/${lead.id}`}
-                          className="flex items-center justify-between gap-3 rounded-md px-1 py-1 transition hover:bg-slate-50"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-ink">
-                              {lead.razaoSocial}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {descricaoEstagioLead(lead.estagio)} ·{" "}
-                              {formatRelative(lead.createdAt)}
-                            </div>
-                          </div>
-                          {lead.responsavel ? (
-                            <Avatar
-                              nome={lead.responsavel.nome}
-                              size="xs"
-                            />
-                          ) : (
-                            <span className="text-[10px] uppercase text-slate-400">
-                              Sem dono
-                            </span>
-                          )}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="card p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <div className="section-label mb-1">Caixa de entrada</div>
-                    <h2 className="text-h3 text-ink">Sem responsável</h2>
-                  </div>
-                  <Link
-                    href="/comercial/leads?tab=sem_responsavel"
-                    className="text-xs font-semibold text-royal transition hover:text-royal-700"
-                  >
-                    Ver tudo →
-                  </Link>
-                </div>
-                {leadsSemResponsavel.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    Nenhum lead aguardando responsável. Bom trabalho!
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-line/70">
-                    {leadsSemResponsavel.map((lead, i) => (
-                      <li
-                        key={lead.id}
-                        className="animate-fade-in-up flex items-center justify-between gap-3 py-2.5"
-                        style={{
-                          animationDelay: `${Math.min(i, 6) * 30}ms`,
-                        }}
-                      >
-                        <Link
-                          href={`/comercial/leads/${lead.id}`}
-                          className="min-w-0 flex-1"
-                        >
-                          <div className="truncate text-sm font-semibold text-ink transition hover:text-royal">
-                            {lead.razaoSocial}
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {descricaoEstagioLead(lead.estagio)} ·{" "}
-                            {formatRelative(lead.createdAt)}
-                          </div>
-                        </Link>
-                        <ComercialPegarLeadButton leadId={lead.id} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </div>
+            {rows.length === 0 ? (
+              <EmptyState
+                icon={Target}
+                title="Nenhum lead nesta visão"
+                description="Ajuste os filtros ou troque de aba pra ver mais leads."
+              />
+            ) : (
+              <LeadsViewSwitcher
+                leads={rows}
+                currentUserId={userId}
+                isAdmin={isAdmin}
+                toggleEnabled={!tabFinalizada}
+                listSlot={
+                  <LeadList
+                    leads={rows}
+                    currentUserId={userId}
+                    isAdmin={isAdmin}
+                    podeArquivar
+                  />
+                }
+              />
+            )}
           </>
         )}
       </div>

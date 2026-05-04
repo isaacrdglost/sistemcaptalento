@@ -90,7 +90,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
       }}
       breadcrumbs={[
         { label: "Vendas" },
-        { label: "Pipeline", href: "/comercial/leads" },
+        { label: "CRM", href: "/comercial" },
         { label: lead.razaoSocial },
       ]}
     >

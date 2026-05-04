@@ -14,7 +14,6 @@ import {
   Sparkles,
   Target,
   Trophy,
-  Briefcase,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +30,8 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
+  /** Prefixos que NÃO devem ativar este item (ex: rota irmã que reside dentro). */
+  excludePrefixes?: string[];
   /** Quais roles veem esse item. Ausente = todos os roles autenticados. */
   roles?: AppRole[];
 }
@@ -67,14 +68,9 @@ const SECTIONS: NavSection[] = [
     items: [
       {
         href: "/comercial",
-        label: "Painel",
-        icon: Briefcase,
-        exact: true,
-      },
-      {
-        href: "/comercial/leads",
-        label: "Pipeline",
+        label: "CRM",
         icon: Target,
+        excludePrefixes: ["/comercial/metas"],
       },
       {
         href: "/comercial/metas",
@@ -136,6 +132,9 @@ export function Sidebar({ role }: SidebarProps) {
 
   function isActive(item: NavItem): boolean {
     if (item.exact) return pathname === item.href;
+    if (item.excludePrefixes?.some((p) => pathname.startsWith(p))) {
+      return false;
+    }
     return pathname === item.href || pathname.startsWith(item.href + "/");
   }
 

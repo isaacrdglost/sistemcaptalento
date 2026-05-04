@@ -101,7 +101,7 @@ export function LeadFiltros({
     const qs = buildQueryString(next);
     if (qs === lastQuerySentRef.current) return;
     lastQuerySentRef.current = qs;
-    const href = `/comercial/leads?${qs}`;
+    const href = qs ? `/comercial?${qs}` : "/comercial";
     startTransition(() => {
       router.push(href);
     });

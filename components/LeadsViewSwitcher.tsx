@@ -26,8 +26,8 @@ export function LeadsViewSwitcher({
   listSlot,
   toggleEnabled = true,
 }: LeadsViewSwitcherProps) {
-  // Default no SSR: lista (evita mismatch de hydration)
-  const [view, setView] = useState<"lista" | "kanban">("lista");
+  // Default no SSR: kanban (evita mismatch de hydration; é a vista preferida)
+  const [view, setView] = useState<"lista" | "kanban">("kanban");
   const [hydrated, setHydrated] = useState(false);
   const [ganharLeadId, setGanharLeadId] = useState<string | null>(null);
   const [perderLeadId, setPerderLeadId] = useState<string | null>(null);

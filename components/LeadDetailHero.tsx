@@ -72,7 +72,7 @@ export function LeadDetailHero({
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.push("/comercial/leads");
+      router.push("/comercial");
     }
   }
 
