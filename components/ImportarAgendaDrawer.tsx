@@ -24,6 +24,7 @@ import {
 import type { StatusCandidato } from "@prisma/client";
 import { importarCandidatosDaAgenda } from "@/app/vagas/[id]/actions";
 import { formatDateBR } from "@/lib/business-days";
+import { Select } from "@/components/ui/Select";
 
 interface ImportarAgendaDrawerProps {
   vagaId: string;
@@ -645,25 +646,15 @@ export function ImportarAgendaDrawer({
                                       </div>
                                       <div className="sm:col-span-2">
                                         <label className="label">Status</label>
-                                        <select
+                                        <Select
                                           value={f.status}
-                                          onChange={(e) =>
+                                          onChange={(v) =>
                                             updateForm(ev.uid, {
-                                              status: e.target
-                                                .value as StatusImportavel,
+                                              status: v as StatusImportavel,
                                             })
                                           }
-                                          className="input"
-                                        >
-                                          {STATUS_OPTIONS.map((o) => (
-                                            <option
-                                              key={o.value}
-                                              value={o.value}
-                                            >
-                                              {o.label}
-                                            </option>
-                                          ))}
-                                        </select>
+                                          options={STATUS_OPTIONS}
+                                        />
                                       </div>
                                     </div>
                                   )}

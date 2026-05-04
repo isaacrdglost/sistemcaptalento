@@ -11,6 +11,29 @@ import {
   reabrirVaga,
 } from "@/app/vagas/[id]/actions";
 import { useConfirm } from "./ConfirmDialog";
+import { Select, type SelectOption } from "@/components/ui/Select";
+
+const FLUXO_OPTIONS: SelectOption[] = [
+  { value: "padrao", label: "Padrão (30 dias úteis)" },
+  { value: "rapido", label: "Rápido (21 dias úteis)" },
+];
+
+const SENIORIDADE_OPTIONS: SelectOption[] = [
+  { value: "", label: "—" },
+  { value: "estagio", label: "Estágio" },
+  { value: "junior", label: "Júnior" },
+  { value: "pleno", label: "Pleno" },
+  { value: "senior", label: "Sênior" },
+  { value: "especialista", label: "Especialista" },
+  { value: "lideranca", label: "Liderança" },
+];
+
+const MODELO_OPTIONS: SelectOption[] = [
+  { value: "", label: "—" },
+  { value: "presencial", label: "Presencial" },
+  { value: "hibrido", label: "Híbrido" },
+  { value: "remoto", label: "Remoto" },
+];
 
 interface VagaInfoFormProps {
   vaga: Vaga & { recrutador?: { id: string; nome: string } | null };
@@ -200,22 +223,18 @@ export function VagaInfoForm({
               <label htmlFor="recrutadorId" className="label">
                 Recrutador responsável
               </label>
-              <select
+              <Select
                 id="recrutadorId"
                 value={recrutadorId}
                 disabled={isPending}
-                onChange={(e) => setRecrutadorId(e.target.value)}
-                className="input"
-              >
-                {recrutadores.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.nome}
-                  </option>
-                ))}
-                {!recrutadores.find((r) => r.id === recrutadorId) && (
-                  <option value={recrutadorId}>{recrutadorNome}</option>
-                )}
-              </select>
+                onChange={(v) => setRecrutadorId(v)}
+                options={[
+                  ...recrutadores.map((r) => ({ value: r.id, label: r.nome })),
+                  ...(!recrutadores.find((r) => r.id === recrutadorId)
+                    ? [{ value: recrutadorId, label: recrutadorNome }]
+                    : []),
+                ]}
+              />
             </div>
           ) : (
             <div>
@@ -248,33 +267,32 @@ export function VagaInfoForm({
             <label htmlFor="cliente" className="label">
               Cliente
             </label>
-            <select
+            <Select
               id="cliente"
               value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
+              onChange={(v) => setClienteId(v)}
               disabled={isPending}
               required
-              className="input"
-            >
-              <option value="" disabled>
-                Selecione um cliente…
-              </option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.razaoSocial}
-                  {c.nomeFantasia ? ` (${c.nomeFantasia})` : ""}
-                </option>
-              ))}
-              {/* Fallback: se o cliente atual foi arquivado e não aparece
-                  na lista filtrada, mostra como opção desabilitada pra
-                  preservar o valor exibido. */}
-              {vaga.clienteId &&
-                !clientes.find((c) => c.id === vaga.clienteId) && (
-                  <option value={vaga.clienteId}>
-                    {vaga.cliente} (arquivado)
-                  </option>
-                )}
-            </select>
+              placeholder="Selecione um cliente…"
+              options={[
+                ...clientes.map((c) => ({
+                  value: c.id,
+                  label: `${c.razaoSocial}${c.nomeFantasia ? ` (${c.nomeFantasia})` : ""}`,
+                })),
+                // Fallback: se o cliente atual foi arquivado e não aparece
+                // na lista filtrada, mostra como opção pra preservar
+                // o valor exibido.
+                ...(vaga.clienteId &&
+                !clientes.find((c) => c.id === vaga.clienteId)
+                  ? [
+                      {
+                        value: vaga.clienteId,
+                        label: `${vaga.cliente} (arquivado)`,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -317,16 +335,13 @@ export function VagaInfoForm({
             <label htmlFor="fluxo" className="label">
               Fluxo
             </label>
-            <select
+            <Select
               id="fluxo"
               value={fluxo}
-              onChange={(e) => setFluxo(e.target.value as Fluxo)}
+              onChange={(v) => setFluxo(v as Fluxo)}
               disabled={isPending}
-              className="input"
-            >
-              <option value="padrao">Padrão (30 dias úteis)</option>
-              <option value="rapido">Rápido (21 dias úteis)</option>
-            </select>
+              options={FLUXO_OPTIONS}
+            />
           </div>
 
           {/* Detalhes da posição — colapsável */}
@@ -355,41 +370,26 @@ export function VagaInfoForm({
                   <label htmlFor="senioridade" className="label">
                     Senioridade
                   </label>
-                  <select
+                  <Select
                     id="senioridade"
                     value={senioridade}
-                    onChange={(e) =>
-                      setSenioridade(e.target.value as Senioridade | "")
-                    }
+                    onChange={(v) => setSenioridade(v as Senioridade | "")}
                     disabled={isPending}
-                    className="input"
-                  >
-                    <option value="">—</option>
-                    <option value="estagio">Estágio</option>
-                    <option value="junior">Júnior</option>
-                    <option value="pleno">Pleno</option>
-                    <option value="senior">Sênior</option>
-                    <option value="especialista">Especialista</option>
-                    <option value="lideranca">Liderança</option>
-                  </select>
+                    options={SENIORIDADE_OPTIONS}
+                  />
                 </div>
 
                 <div>
                   <label htmlFor="modelo" className="label">
                     Modelo
                   </label>
-                  <select
+                  <Select
                     id="modelo"
                     value={modelo}
-                    onChange={(e) => setModelo(e.target.value as Modelo | "")}
+                    onChange={(v) => setModelo(v as Modelo | "")}
                     disabled={isPending}
-                    className="input"
-                  >
-                    <option value="">—</option>
-                    <option value="presencial">Presencial</option>
-                    <option value="hibrido">Híbrido</option>
-                    <option value="remoto">Remoto</option>
-                  </select>
+                    options={MODELO_OPTIONS}
+                  />
                 </div>
               </div>
 

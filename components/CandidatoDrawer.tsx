@@ -31,6 +31,7 @@ import {
 import { formatDateBR, formatRelative } from "@/lib/business-days";
 import { formatCPF } from "@/lib/format";
 import { useConfirm } from "./ConfirmDialog";
+import { Select } from "@/components/ui/Select";
 
 export type AnaliseFichaComAutor = AnaliseFicha & {
   autor: { nome: string };
@@ -943,31 +944,26 @@ export function CandidatoDrawer({
                               <label className="label" htmlFor="ficha-resultado">
                                 Resultado
                               </label>
-                              <select
+                              <Select
                                 id="ficha-resultado"
                                 value={fichaResultado}
-                                onChange={(e) =>
-                                  setFichaResultado(
-                                    e.target.value as ResultadoAnalise,
-                                  )
+                                onChange={(v) =>
+                                  setFichaResultado(v as ResultadoAnalise)
                                 }
                                 disabled={isPendingFicha}
-                                className="input"
-                              >
-                                {(
+                                options={(
                                   [
                                     "limpa",
                                     "com_ocorrencias",
                                     "inconclusivo",
                                     "pendente",
                                   ] as ResultadoAnalise[]
-                                ).map((r) => (
-                                  <option key={r} value={r}>
-                                    {RESULTADO_META[r].label} —{" "}
-                                    {RESULTADO_META[r].descricao}
-                                  </option>
-                                ))}
-                              </select>
+                                ).map((r) => ({
+                                  value: r,
+                                  label: RESULTADO_META[r].label,
+                                  description: RESULTADO_META[r].descricao,
+                                }))}
+                              />
                             </div>
 
                             <div>

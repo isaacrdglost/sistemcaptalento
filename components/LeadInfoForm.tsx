@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { Lead, OrigemLead } from "@prisma/client";
 import { criarLead, atualizarLead, type LeadInput } from "@/app/comercial/actions";
 import { formatCNPJ } from "@/lib/format";
+import { Select } from "@/components/ui/Select";
 
 interface LeadInfoFormProps {
   mode: "create" | "edit";
@@ -359,19 +360,13 @@ export function LeadInfoForm({
             <label htmlFor="lead-origem" className="label">
               Origem
             </label>
-            <select
+            <Select
               id="lead-origem"
               value={state.origem}
-              onChange={(e) => update("origem", e.target.value as OrigemLead)}
+              onChange={(v) => update("origem", v as OrigemLead)}
               disabled={locked}
-              className="input"
-            >
-              {ORIGEM_OPCOES.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              options={ORIGEM_OPCOES}
+            />
           </div>
           {state.origem === "outro" ? (
             <div>

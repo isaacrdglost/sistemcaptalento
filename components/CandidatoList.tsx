@@ -24,6 +24,7 @@ import {
 } from "./CandidatoDrawer";
 import { useConfirm } from "./ConfirmDialog";
 import { ImportarAgendaDrawer } from "./ImportarAgendaDrawer";
+import { Select } from "@/components/ui/Select";
 
 interface CandidatoListProps {
   vagaId: string;
@@ -104,41 +105,18 @@ function StatusPill({
     return <span className={badgeClassFor(status)}>{statusLabel(status)}</span>;
   }
   return (
-    <div className="relative">
-      <span
-        className={`${badgeClassFor(status)} pr-6 transition ${
-          disabled ? "opacity-60" : "cursor-pointer"
-        }`}
-        aria-hidden="true"
-      >
-        {statusLabel(status)}
-      </span>
-      <svg
-        className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-current opacity-70"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-          clipRule="evenodd"
-        />
-      </svg>
-      <select
-        value={status}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value as StatusCandidato)}
-        className="absolute inset-0 w-full cursor-pointer appearance-none bg-transparent text-transparent outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-200 focus-visible:ring-offset-1 disabled:cursor-not-allowed"
-        aria-label="Alterar status"
-      >
-        {STATUS_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value} className="text-ink">
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <Select
+      size="sm"
+      value={status}
+      onChange={(v) => onChange(v as StatusCandidato)}
+      disabled={disabled}
+      options={STATUS_OPTIONS.map((o) => ({
+        value: o.value,
+        label: o.label,
+      }))}
+      ariaLabel="Alterar status"
+      className="min-w-[8rem]"
+    />
   );
 }
 

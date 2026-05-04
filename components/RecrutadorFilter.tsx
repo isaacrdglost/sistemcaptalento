@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Users } from "lucide-react";
+import { Select } from "@/components/ui/Select";
 
 interface RecrutadorFilterProps {
   recrutadores: { id: string; nome: string; count?: number }[];
@@ -18,8 +18,7 @@ export function RecrutadorFilter({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  function onChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = e.target.value;
+  function onChange(value: string) {
     startTransition(() => {
       if (!value) {
         router.push("/dashboard");
@@ -29,32 +28,26 @@ export function RecrutadorFilter({
     });
   }
 
+  const options = [
+    {
+      value: "",
+      label: `Todas as recrutadoras${typeof totalAtivas === "number" ? ` (${totalAtivas})` : ""}`,
+    },
+    ...recrutadores.map((r) => ({
+      value: r.id,
+      label: `${r.nome}${typeof r.count === "number" ? ` (${r.count})` : ""}`,
+    })),
+  ];
+
   return (
-    <div className="relative inline-flex items-center">
-      <Users
-        size={14}
-        className="pointer-events-none absolute left-3 text-slate-400"
-        aria-hidden
-      />
-      <select
-        id="rec-filter"
-        aria-label="Filtrar por recrutadora"
-        className="input min-w-[14rem] pl-9 text-sm"
-        value={current ?? ""}
-        onChange={onChange}
-        disabled={isPending}
-      >
-        <option value="">
-          Todas as recrutadoras
-          {typeof totalAtivas === "number" ? ` (${totalAtivas})` : ""}
-        </option>
-        {recrutadores.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.nome}
-            {typeof r.count === "number" ? ` (${r.count})` : ""}
-          </option>
-        ))}
-      </select>
-    </div>
+    <Select
+      id="rec-filter"
+      ariaLabel="Filtrar por recrutadora"
+      className="min-w-[14rem]"
+      value={current ?? ""}
+      onChange={onChange}
+      disabled={isPending}
+      options={options}
+    />
   );
 }

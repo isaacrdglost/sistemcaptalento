@@ -111,7 +111,7 @@ option {
 
   /* === Chips de seleção (tipo login) === */
   .chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2
+    @apply inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-line bg-white px-4 py-2
            text-sm font-medium text-ink shadow-xs
            transition-all duration-250 ease-smooth
            hover:-translate-y-0.5 hover:border-royal-200 hover:bg-royal-50 hover:shadow-md
@@ -168,7 +168,7 @@ option {
 
   /* === Badges === */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold;
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold;
   }
   .badge-royal {
     @apply badge bg-royal-50 text-royal-700 ring-1 ring-inset ring-royal-100;

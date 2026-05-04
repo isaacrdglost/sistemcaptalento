@@ -19,6 +19,13 @@ import {
 } from "@/app/admin/actions";
 import { formatDateBR } from "@/lib/business-days";
 import { Avatar } from "@/components/ui/Avatar";
+import { Select } from "@/components/ui/Select";
+
+const ROLE_OPTIONS = [
+  { value: "recruiter", label: "Recrutadora" },
+  { value: "comercial", label: "Comercial" },
+  { value: "admin", label: "Admin" },
+];
 
 export interface UserListItem {
   id: string;
@@ -273,21 +280,17 @@ export function UserList({ users, currentUserId }: UserListProps) {
               <label className="label" htmlFor="create-role">
                 Papel
               </label>
-              <select
+              <Select
                 id="create-role"
-                className="input"
                 value={createState.role}
-                onChange={(e) =>
+                onChange={(v) =>
                   setCreateState((s) => ({
                     ...s,
-                    role: e.target.value as AppRole,
+                    role: v as AppRole,
                   }))
                 }
-              >
-                <option value="recruiter">Recrutadora</option>
-                <option value="comercial">Comercial</option>
-                <option value="admin">Admin</option>
-              </select>
+                options={ROLE_OPTIONS}
+              />
             </div>
           </div>
           {createError ? (
@@ -361,23 +364,19 @@ export function UserList({ users, currentUserId }: UserListProps) {
                             }))
                           }
                         />
-                        <select
-                          className="input"
+                        <Select
                           value={edit.role}
-                          onChange={(e) =>
+                          onChange={(v) =>
                             setEditState((prev) => ({
                               ...prev,
                               [user.id]: {
                                 ...edit,
-                                role: e.target.value as AppRole,
+                                role: v as AppRole,
                               },
                             }))
                           }
-                        >
-                          <option value="recruiter">Recrutadora</option>
-                          <option value="comercial">Comercial</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                          options={ROLE_OPTIONS}
+                        />
                       </div>
                     </td>
                     <td className="px-4 py-3">

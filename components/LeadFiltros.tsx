@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { Select } from "@/components/ui/Select";
 
 export type LeadTab =
   | "meus"
@@ -211,18 +212,13 @@ export function LeadFiltros({
           ) : null}
         </div>
 
-        <select
+        <Select
           value={origem}
-          onChange={(e) => setOrigem(e.target.value)}
-          className="input md:max-w-[12rem]"
-          aria-label="Filtrar por origem"
-        >
-          {ORIGEM_OPCOES.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setOrigem(v)}
+          className="md:max-w-[12rem]"
+          ariaLabel="Filtrar por origem"
+          options={ORIGEM_OPCOES}
+        />
 
         <label className="inline-flex cursor-pointer items-center gap-2">
           <input

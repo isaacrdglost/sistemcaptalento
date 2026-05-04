@@ -7,6 +7,7 @@ import { criarVaga } from "@/app/vagas/nova/actions";
 import { getFluxoSpec } from "@/lib/flows";
 import type { AppRole } from "@/lib/auth";
 import type { Fluxo } from "@prisma/client";
+import { Select } from "@/components/ui/Select";
 
 interface NovaVagaFormProps {
   recrutadores: { id: string; nome: string }[];
@@ -107,22 +108,14 @@ export function NovaVagaForm({
           />
         ) : (
           <>
-            <select
+            <Select
               id="recrutador"
-              className="input"
               value={recrutadorId}
-              onChange={(e) => setRecrutadorId(e.target.value)}
+              onChange={(v) => setRecrutadorId(v)}
               required
-            >
-              <option value="" disabled>
-                Selecione uma recrutadora…
-              </option>
-              {recrutadores.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nome}
-                </option>
-              ))}
-            </select>
+              placeholder="Selecione uma recrutadora…"
+              options={recrutadores.map((r) => ({ value: r.id, label: r.nome }))}
+            />
             {recrutadores.length === 0 && (
               <p className="mt-1 text-xs text-amber-700">
                 Nenhuma recrutadora ativa. Cadastre uma em /admin antes de
@@ -153,23 +146,17 @@ export function NovaVagaForm({
         <label htmlFor="cliente" className="label">
           Cliente
         </label>
-        <select
+        <Select
           id="cliente"
-          className="input"
           value={clienteId}
-          onChange={(e) => setClienteId(e.target.value)}
+          onChange={(v) => setClienteId(v)}
           required
-        >
-          <option value="" disabled>
-            Selecione um cliente…
-          </option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.razaoSocial}
-              {c.nomeFantasia ? ` (${c.nomeFantasia})` : ""}
-            </option>
-          ))}
-        </select>
+          placeholder="Selecione um cliente…"
+          options={clientes.map((c) => ({
+            value: c.id,
+            label: `${c.razaoSocial}${c.nomeFantasia ? ` (${c.nomeFantasia})` : ""}`,
+          }))}
+        />
         {clientes.length === 0 && (
           <p className="mt-1 text-xs text-amber-700">
             Nenhum cliente ativo cadastrado.{" "}

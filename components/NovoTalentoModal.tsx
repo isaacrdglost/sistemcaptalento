@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FileText, Loader2, Plus, Upload, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { criarTalento, type TalentoInput } from "@/app/talentos/actions";
+import { Select } from "@/components/ui/Select";
 
 interface NovoTalentoModalProps {
   triggerLabel?: string;
@@ -435,22 +436,18 @@ export function NovoTalentoModal({
                     <label htmlFor="tal-senioridade" className="label">
                       Senioridade
                     </label>
-                    <select
+                    <Select
                       id="tal-senioridade"
                       value={form.senioridade}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, senioridade: e.target.value }))
+                      onChange={(v) =>
+                        setForm((f) => ({ ...f, senioridade: v }))
                       }
                       disabled={isPending}
-                      className="input"
-                    >
-                      <option value="">Não informada</option>
-                      {SENIORIDADES.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "", label: "Não informada" },
+                        ...SENIORIDADES,
+                      ]}
+                    />
                   </div>
                   <div>
                     <label htmlFor="tal-area" className="label">

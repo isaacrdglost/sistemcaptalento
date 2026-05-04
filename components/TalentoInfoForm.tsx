@@ -9,6 +9,7 @@ import {
   atualizarTalento,
   type TalentoInput,
 } from "@/app/talentos/actions";
+import { Select } from "@/components/ui/Select";
 
 interface TalentoInfoFormProps {
   talento: Talento;
@@ -309,20 +310,16 @@ export function TalentoInfoForm({ talento }: TalentoInfoFormProps) {
             <label htmlFor="tif-senioridade" className="label">
               Senioridade
             </label>
-            <select
+            <Select
               id="tif-senioridade"
               value={senioridade}
-              onChange={(e) => setSenioridade(e.target.value)}
+              onChange={(v) => setSenioridade(v)}
               disabled={isPending}
-              className="input"
-            >
-              <option value="">Não informada</option>
-              {SENIORIDADES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Não informada" },
+                ...SENIORIDADES,
+              ]}
+            />
           </div>
           <div>
             <label htmlFor="tif-area" className="label">

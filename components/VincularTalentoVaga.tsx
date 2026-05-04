@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { vincularTalentoAVaga } from "@/app/talentos/actions";
+import { Select } from "@/components/ui/Select";
 
 interface VagaOpcao {
   id: string;
@@ -69,24 +70,20 @@ export function VincularTalentoVaga({
       </p>
 
       <div className="flex flex-col gap-2">
-        <select
+        <Select
           value={vagaId}
-          onChange={(e) => setVagaId(e.target.value)}
+          onChange={(v) => setVagaId(v)}
           disabled={isPending}
-          className="input"
-          aria-label="Selecionar vaga"
-        >
-          <option value="">Selecione uma vaga…</option>
-          {vagas.map((v) => {
+          ariaLabel="Selecionar vaga"
+          placeholder="Selecione uma vaga…"
+          options={vagas.map((v) => {
             const jaVinculada = vagasJaVinculadas.includes(v.id);
-            return (
-              <option key={v.id} value={v.id}>
-                {v.titulo} — {v.cliente}
-                {jaVinculada ? " (já vinculado)" : ""}
-              </option>
-            );
+            return {
+              value: v.id,
+              label: `${v.titulo} — ${v.cliente}${jaVinculada ? " (já vinculado)" : ""}`,
+            };
           })}
-        </select>
+        />
         <button
           type="button"
           onClick={handleVincular}
