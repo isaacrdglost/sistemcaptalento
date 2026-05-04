@@ -3,13 +3,14 @@ import { Topbar } from "./Topbar";
 import { CommandMenu } from "../CommandMenu";
 import { GlobalShortcuts } from "../GlobalShortcuts";
 import type { BreadcrumbItem } from "./Breadcrumbs";
+import type { AppRole } from "@/lib/auth";
 
 interface AppShellProps {
   children: React.ReactNode;
   user: {
     name: string;
     email: string;
-    role: "recruiter" | "admin";
+    role: AppRole;
   };
   breadcrumbs?: BreadcrumbItem[];
 }

@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   recruiter
   admin
+  comercial
 }
 
 enum Fluxo {
@@ -70,6 +71,42 @@ enum ResultadoAnalise {
   pendente
 }
 
+enum EstagioLead {
+  novo
+  qualificado
+  proposta
+  negociacao
+  ganho
+  perdido
+}
+
+enum OrigemLead {
+  prospeccao_ativa
+  indicacao
+  site
+  redes_sociais
+  linkedin
+  evento
+  whatsapp
+  outro
+}
+
+enum TipoAtividadeLead {
+  ligacao
+  email
+  reuniao
+  whatsapp
+  nota
+  mudanca_estagio
+  followup_agendado
+  followup_concluido
+  lead_capturado_site
+  lead_ganho
+  lead_perdido
+  lead_arquivado
+  lead_atribuido
+}
+
 model User {
   id        String   @id @default(cuid())
   nome      String
@@ -84,9 +121,11 @@ model User {
   /// Null quando o usuário ainda não configurou.
   calendarIcsUrlEnc String?
 
-  vagas         Vaga[]          @relation("RecrutadorVagas")
-  atividades    Atividade[]
-  analisesFicha AnaliseFicha[]
+  vagas             Vaga[]            @relation("RecrutadorVagas")
+  atividades        Atividade[]
+  analisesFicha     AnaliseFicha[]
+  leadsResponsavel  Lead[]            @relation("LeadResponsavel")
+  atividadesLead    AtividadeLead[]
 }
 
 model Cliente {
@@ -103,6 +142,7 @@ model Cliente {
   createdAt           DateTime @default(now())
 
   vagas Vaga[]
+  leads Lead[]
 
   @@index([ativo])
 }
@@ -247,4 +287,78 @@ model Atividade {
 
   @@index([vagaId, createdAt])
   @@index([autorId])
+}
+
+model Lead {
+  id              String       @id @default(cuid())
+  razaoSocial     String
+  nomeFantasia    String?
+  cnpj            String?
+  segmento        String?
+  site            String?
+
+  // contato
+  contatoNome     String?
+  contatoCargo    String?
+  email           String?
+  telefone        String?
+  linkedinUrl     String?
+
+  // captura — texto livre vindo do form do site, e tracking de campanhas
+  mensagem        String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+
+  // pipeline
+  estagio          EstagioLead @default(novo)
+  etapaDesde       DateTime    @default(now())
+  arquivado        Boolean     @default(false)
+  dataArquivamento DateTime?
+  motivoPerda      String?
+
+  // origem
+  origem          OrigemLead   @default(site)
+  origemDescricao String?
+
+  // ownership — nullable: lead pode ficar na "caixa de entrada" compartilhada
+  responsavelId   String?
+  responsavel     User?        @relation("LeadResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  // conversão — preenchido quando estagio = ganho
+  clienteId       String?
+  cliente         Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  dataGanho       DateTime?
+  dataPerda       DateTime?
+
+  obs             String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  atividades      AtividadeLead[]
+
+  @@index([responsavelId, estagio])
+  @@index([estagio, arquivado])
+  @@index([responsavelId])
+  @@index([clienteId])
+}
+
+model AtividadeLead {
+  id              String             @id @default(cuid())
+  leadId          String
+  autorId         String
+  tipo            TipoAtividadeLead
+  descricao       String
+  metadata        Json?
+  // pra follow-ups: agendadoPara é a data alvo, concluidoEm marca a finalização
+  agendadoPara    DateTime?
+  concluidoEm     DateTime?
+  createdAt       DateTime           @default(now())
+
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  autor  User @relation(fields: [autorId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@index([autorId, agendadoPara])
+  @@index([agendadoPara, concluidoEm])
 }

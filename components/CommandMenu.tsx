@@ -11,12 +11,15 @@ import {
   Settings,
   Briefcase,
   Building2,
+  Target,
+  Trophy,
   User,
   UserSearch,
 } from "lucide-react";
 import { useCommandMenu } from "./CommandMenuProvider";
 import { fluxoLabel } from "@/lib/flows";
-import type { Fluxo, StatusCandidato } from "@prisma/client";
+import { descricaoEstagioLead } from "@/lib/activity-lead";
+import type { EstagioLead, Fluxo, StatusCandidato } from "@prisma/client";
 
 interface SearchVaga {
   id: string;
@@ -49,11 +52,20 @@ interface SearchTalento {
   area: string | null;
 }
 
+interface SearchLead {
+  id: string;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  estagio: EstagioLead;
+  responsavelNome: string | null;
+}
+
 interface SearchResponse {
   vagas: SearchVaga[];
   candidatos: SearchCandidato[];
   clientes: SearchCliente[];
   talentos: SearchTalento[];
+  leads: SearchLead[];
 }
 
 const SENIORIDADE_LABEL_SHORT: Record<string, string> = {
@@ -71,13 +83,17 @@ export function CommandMenu() {
   const { isOpen, close } = useCommandMenu();
   const router = useRouter();
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const role = session?.user?.role;
+  const isAdmin = role === "admin";
+  const isComercial = role === "comercial";
+  const isOperacional = role === "recruiter" || role === "admin";
 
   const [query, setQuery] = useState("");
   const [vagas, setVagas] = useState<SearchVaga[]>([]);
   const [candidatos, setCandidatos] = useState<SearchCandidato[]>([]);
   const [clientes, setClientes] = useState<SearchCliente[]>([]);
   const [talentos, setTalentos] = useState<SearchTalento[]>([]);
+  const [leads, setLeads] = useState<SearchLead[]>([]);
   const [loading, setLoading] = useState(false);
 
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -120,6 +136,7 @@ export function CommandMenu() {
             setCandidatos([]);
             setClientes([]);
             setTalentos([]);
+            setLeads([]);
           }
           return;
         }
@@ -129,6 +146,7 @@ export function CommandMenu() {
           setCandidatos(data.candidatos ?? []);
           setClientes(data.clientes ?? []);
           setTalentos(data.talentos ?? []);
+          setLeads(data.leads ?? []);
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -136,6 +154,7 @@ export function CommandMenu() {
           setCandidatos([]);
           setClientes([]);
           setTalentos([]);
+          setLeads([]);
         }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -202,24 +221,62 @@ export function CommandMenu() {
             heading="Navegação"
             className="px-1 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2"
           >
-            <NavItem
-              value="nav-dashboard"
-              label="Dashboard"
-              icon={<LayoutDashboard size={16} className="text-slate-500" />}
-              onSelect={() => go("/dashboard")}
-            />
-            <NavItem
-              value="nav-nova-vaga"
-              label="Nova vaga"
-              icon={<PlusCircle size={16} className="text-slate-500" />}
-              onSelect={() => go("/vagas/nova")}
-            />
-            <NavItem
-              value="nav-talentos"
-              label="Talentos"
-              icon={<UserSearch size={16} className="text-slate-500" />}
-              onSelect={() => go("/talentos")}
-            />
+            {isOperacional && (
+              <NavItem
+                value="nav-dashboard"
+                label="Dashboard"
+                icon={<LayoutDashboard size={16} className="text-slate-500" />}
+                onSelect={() => go("/dashboard")}
+              />
+            )}
+            {isOperacional && (
+              <NavItem
+                value="nav-nova-vaga"
+                label="Nova vaga"
+                icon={<PlusCircle size={16} className="text-slate-500" />}
+                onSelect={() => go("/vagas/nova")}
+              />
+            )}
+            {(isComercial || isAdmin) && (
+              <NavItem
+                value="nav-comercial"
+                label="Painel comercial"
+                icon={<Briefcase size={16} className="text-slate-500" />}
+                onSelect={() => go("/comercial")}
+              />
+            )}
+            {(isComercial || isAdmin) && (
+              <NavItem
+                value="nav-leads"
+                label="Pipeline de leads"
+                icon={<Target size={16} className="text-slate-500" />}
+                onSelect={() => go("/comercial/leads")}
+              />
+            )}
+            {(isComercial || isAdmin) && (
+              <NavItem
+                value="nav-leads-novo"
+                label="Novo lead"
+                icon={<PlusCircle size={16} className="text-slate-500" />}
+                onSelect={() => go("/comercial/leads/novo")}
+              />
+            )}
+            {(isComercial || isAdmin) && (
+              <NavItem
+                value="nav-metas"
+                label="Metas"
+                icon={<Trophy size={16} className="text-slate-500" />}
+                onSelect={() => go("/comercial/metas")}
+              />
+            )}
+            {isOperacional && (
+              <NavItem
+                value="nav-talentos"
+                label="Talentos"
+                icon={<UserSearch size={16} className="text-slate-500" />}
+                onSelect={() => go("/talentos")}
+              />
+            )}
             <NavItem
               value="nav-clientes"
               label="Clientes"
@@ -345,6 +402,38 @@ export function CommandMenu() {
                     </Command.Item>
                   );
                 })}
+              </Command.Group>
+            </>
+          )}
+
+          {leads.length > 0 && (
+            <>
+              <Command.Separator className="my-1 h-px bg-slate-100" />
+              <Command.Group
+                heading="Leads"
+                className="px-1 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2"
+              >
+                {leads.map((l) => (
+                  <Command.Item
+                    key={l.id}
+                    value={`lead-${l.id}-${l.razaoSocial}`}
+                    onSelect={() => go(`/comercial/leads/${l.id}`)}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink transition data-[selected=true]:bg-royal-50 data-[selected=true]:text-royal-700"
+                  >
+                    <Target size={16} className="shrink-0 text-slate-500" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">
+                        {l.razaoSocial}
+                      </div>
+                      <div className="truncate text-xs text-slate-500">
+                        {l.nomeFantasia ?? l.responsavelNome ?? "—"}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      {descricaoEstagioLead(l.estagio)}
+                    </span>
+                  </Command.Item>
+                ))}
               </Command.Group>
             </>
           )}

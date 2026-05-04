@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import type { AppRole } from "@/lib/auth";
 
 interface UserMenuProps {
   name: string;
   email: string;
-  role: "recruiter" | "admin";
+  role: AppRole;
 }
 
 export function UserMenu({ name, email, role }: UserMenuProps) {
@@ -65,7 +66,11 @@ export function UserMenu({ name, email, role }: UserMenuProps) {
               <div className="truncate text-xs text-slate-500">{email}</div>
               <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-royal-700 ring-1 ring-inset ring-royal-100">
                 <span className="dot bg-lima animate-pulse-soft" />
-                {role === "admin" ? "Admin" : "Recrutadora"}
+                {role === "admin"
+                  ? "Admin"
+                  : role === "comercial"
+                    ? "Comercial"
+                    : "Recrutadora"}
               </div>
             </div>
           </div>

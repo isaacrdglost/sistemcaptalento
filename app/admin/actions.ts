@@ -12,7 +12,7 @@ type ActionResult<T = undefined> =
   | ({ ok: true } & (T extends undefined ? {} : T))
   | { error: string };
 
-const roleEnum = z.enum(["recruiter", "admin"]);
+const roleEnum = z.enum(["recruiter", "admin", "comercial"]);
 
 const criarUsuarioSchema = z.object({
   nome: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),

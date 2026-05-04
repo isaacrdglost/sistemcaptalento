@@ -1,4 +1,10 @@
-import { Briefcase, BriefcaseBusiness, ShieldCheck, Users } from "lucide-react";
+import {
+  Briefcase,
+  BriefcaseBusiness,
+  ShieldCheck,
+  Target,
+  Users,
+} from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
@@ -42,6 +48,9 @@ export default async function AdminPage() {
   const totalRecrutadoras = users.filter(
     (u) => u.role === "recruiter" && u.ativo,
   ).length;
+  const totalComerciais = users.filter(
+    (u) => u.role === "comercial" && u.ativo,
+  ).length;
   const totalVagas = vagas.length;
   const vagasEncerradas = vagas.filter((v) => v.encerrada).length;
 
@@ -64,7 +73,7 @@ export default async function AdminPage() {
           subtitle="Gestão de usuários e visão completa das vagas"
         />
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <div
             className="animate-fade-in-up"
             style={{ animationDelay: "0ms" }}
@@ -95,6 +104,18 @@ export default async function AdminPage() {
             style={{ animationDelay: "120ms" }}
           >
             <StatCard
+              label="Comerciais"
+              value={totalComerciais}
+              icon={Target}
+              tone="amber"
+              size="sm"
+            />
+          </div>
+          <div
+            className="animate-fade-in-up"
+            style={{ animationDelay: "180ms" }}
+          >
+            <StatCard
               label="Total de vagas"
               value={totalVagas}
               icon={Briefcase}
@@ -104,7 +125,7 @@ export default async function AdminPage() {
           </div>
           <div
             className="animate-fade-in-up"
-            style={{ animationDelay: "180ms" }}
+            style={{ animationDelay: "240ms" }}
           >
             <StatCard
               label="Vagas encerradas"

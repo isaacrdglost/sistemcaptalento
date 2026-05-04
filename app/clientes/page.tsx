@@ -11,6 +11,8 @@ import { requireSession } from "@/lib/session";
 
 export default async function ClientesPage() {
   const session = await requireSession();
+  const podeEditar =
+    session.user.role === "admin" || session.user.role === "recruiter";
 
   const clientes = await prisma.cliente.findMany({
     orderBy: [{ ativo: "desc" }, { razaoSocial: "asc" }],
@@ -53,7 +55,9 @@ export default async function ClientesPage() {
         role: session.user.role,
       }}
       breadcrumbs={[
-        { label: "Dashboard", href: "/dashboard" },
+        session.user.role === "comercial"
+          ? { label: "Vendas", href: "/comercial" }
+          : { label: "Dashboard", href: "/dashboard" },
         { label: "Clientes" },
       ]}
     >
@@ -61,16 +65,28 @@ export default async function ClientesPage() {
         <PageHeader
           eyebrow="CRM"
           title="Clientes"
-          subtitle="Banco de clientes da CapTalento RH"
-          actions={<NovoClienteModal />}
+          subtitle={
+            podeEditar
+              ? "Banco de clientes da CapTalento RH"
+              : "Visão somente leitura — peça pra um admin/recrutadora pra editar"
+          }
+          actions={podeEditar ? <NovoClienteModal /> : null}
         />
 
         {rows.length === 0 ? (
           <EmptyState
             icon={Building2}
             title="Nenhum cliente cadastrado ainda"
-            description="Cadastre seu primeiro cliente para começar a associar vagas e organizar o portfólio."
-            action={<NovoClienteModal triggerLabel="Cadastrar primeiro cliente" />}
+            description={
+              podeEditar
+                ? "Cadastre seu primeiro cliente para começar a associar vagas e organizar o portfólio."
+                : "Quando algum cliente for cadastrado, ele vai aparecer aqui."
+            }
+            action={
+              podeEditar ? (
+                <NovoClienteModal triggerLabel="Cadastrar primeiro cliente" />
+              ) : null
+            }
           />
         ) : (
           <>

@@ -11,10 +11,11 @@ import {
 } from "@/app/clientes/actions";
 import { useConfirm } from "./ConfirmDialog";
 import { formatCNPJ } from "@/lib/format";
+import type { AppRole } from "@/lib/auth";
 
 interface ClienteInfoFormProps {
   cliente: Cliente;
-  role: "admin" | "recruiter";
+  role: AppRole;
 }
 
 function maskCNPJ(value: string): string {
@@ -44,6 +45,9 @@ function maskPhone(value: string): string {
 
 export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
   const isAdmin = role === "admin";
+  // Comercial vê o form em modo somente leitura; backend rejeita mutações
+  // mesmo que algo passe (defesa em profundidade).
+  const readOnly = role === "comercial";
   const router = useRouter();
   const confirm = useConfirm();
 
@@ -152,7 +156,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
             type="text"
             value={razaoSocial}
             onChange={(e) => setRazaoSocial(e.target.value)}
-            disabled={isPending}
+            disabled={isPending || readOnly}
             required
             className="input"
           />
@@ -167,7 +171,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
             type="text"
             value={nomeFantasia}
             onChange={(e) => setNomeFantasia(e.target.value)}
-            disabled={isPending}
+            disabled={isPending || readOnly}
             className="input"
           />
         </div>
@@ -182,7 +186,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
               type="text"
               value={cnpj}
               onChange={(e) => setCnpj(maskCNPJ(e.target.value))}
-              disabled={isPending}
+              disabled={isPending || readOnly}
               inputMode="numeric"
               placeholder="00.000.000/0000-00"
               className="input"
@@ -197,7 +201,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
               type="text"
               value={segmento}
               onChange={(e) => setSegmento(e.target.value)}
-              disabled={isPending}
+              disabled={isPending || readOnly}
               placeholder="Tech, Saúde, Varejo…"
               className="input"
             />
@@ -213,7 +217,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
             type="text"
             value={contatoResponsavel}
             onChange={(e) => setContatoResponsavel(e.target.value)}
-            disabled={isPending}
+            disabled={isPending || readOnly}
             className="input"
           />
         </div>
@@ -228,7 +232,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
               type="email"
               value={emailPrincipal}
               onChange={(e) => setEmailPrincipal(e.target.value)}
-              disabled={isPending}
+              disabled={isPending || readOnly}
               className="input"
               placeholder="contato@empresa.com"
             />
@@ -242,7 +246,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
               type="tel"
               value={telefone}
               onChange={(e) => setTelefone(maskPhone(e.target.value))}
-              disabled={isPending}
+              disabled={isPending || readOnly}
               inputMode="numeric"
               placeholder="(00) 00000-0000"
               className="input"
@@ -258,7 +262,7 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
             id="cli-obs"
             value={obs}
             onChange={(e) => setObs(e.target.value)}
-            disabled={isPending}
+            disabled={isPending || readOnly}
             rows={4}
             className="input resize-y"
           />
@@ -295,33 +299,44 @@ export function ClienteInfoForm({ cliente, role }: ClienteInfoFormProps) {
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button type="submit" disabled={isPending} className="btn-primary">
-            {isPending ? "Salvando…" : "Salvar alterações"}
-          </button>
-
-          {isAdmin && ativo ? (
+        {readOnly ? (
+          <div className="rounded-lg border border-line/70 bg-slate-50/60 px-4 py-3 text-xs text-slate-500">
+            Você está visualizando esse cliente em modo somente-leitura. Pra
+            editar dados ou arquivar, peça pra um admin ou recrutadora.
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
-              type="button"
-              onClick={handleArquivar}
+              type="submit"
               disabled={isPending}
-              className="btn-danger"
+              className="btn-primary"
             >
-              {isPending ? "Salvando…" : "Arquivar cliente"}
+              {isPending ? "Salvando…" : "Salvar alterações"}
             </button>
-          ) : null}
 
-          {isAdmin && !ativo ? (
-            <button
-              type="button"
-              onClick={handleReativar}
-              disabled={isPending}
-              className="btn-secondary"
-            >
-              {isPending ? "Salvando…" : "Reativar cliente"}
-            </button>
-          ) : null}
-        </div>
+            {isAdmin && ativo ? (
+              <button
+                type="button"
+                onClick={handleArquivar}
+                disabled={isPending}
+                className="btn-danger"
+              >
+                {isPending ? "Salvando…" : "Arquivar cliente"}
+              </button>
+            ) : null}
+
+            {isAdmin && !ativo ? (
+              <button
+                type="button"
+                onClick={handleReativar}
+                disabled={isPending}
+                className="btn-secondary"
+              >
+                {isPending ? "Salvando…" : "Reativar cliente"}
+              </button>
+            ) : null}
+          </div>
+        )}
       </form>
     </section>
   );

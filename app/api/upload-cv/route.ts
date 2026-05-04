@@ -29,6 +29,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    // Upload de CV é da operação (recruiter/admin); comercial não usa este
+    // endpoint e não pode consumir cota nem armazenar arquivos por aqui.
+    if (session.user.role === "comercial") {
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    }
+
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return NextResponse.json(
         {

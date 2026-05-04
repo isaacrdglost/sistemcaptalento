@@ -1,13 +1,14 @@
 import { Breadcrumbs, type BreadcrumbItem } from "./Breadcrumbs";
 import { UserMenu } from "./UserMenu";
 import { CommandMenuTrigger } from "../CommandMenuTrigger";
+import type { AppRole } from "@/lib/auth";
 
 interface TopbarProps {
   breadcrumbs?: BreadcrumbItem[];
   user: {
     name: string;
     email: string;
-    role: "recruiter" | "admin";
+    role: AppRole;
   };
 }
 

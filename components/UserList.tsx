@@ -52,6 +52,13 @@ function roleBadge(role: AppRole) {
       </span>
     );
   }
+  if (role === "comercial") {
+    return (
+      <span className="badge-dot bg-amber-50 text-amber-700 ring-amber-100">
+        Comercial
+      </span>
+    );
+  }
   return (
     <span className="badge-dot bg-slate-100 text-slate-600 ring-slate-200">
       Recrutadora
@@ -278,6 +285,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
                 }
               >
                 <option value="recruiter">Recrutadora</option>
+                <option value="comercial">Comercial</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -367,6 +375,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
                           }
                         >
                           <option value="recruiter">Recrutadora</option>
+                          <option value="comercial">Comercial</option>
                           <option value="admin">Admin</option>
                         </select>
                       </div>

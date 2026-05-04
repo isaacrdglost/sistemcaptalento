@@ -28,9 +28,33 @@ async function main() {
     },
   });
 
+  // Comercial de exemplo (gated por env pra não criar acidentalmente em prod)
+  let comercialEmail: string | null = null;
+  if (process.env.SEED_COMERCIAL === "1") {
+    const comercial = await prisma.user.upsert({
+      where: { email: "comercial.captalento@gmail.com" },
+      update: {},
+      create: {
+        nome: "Comercial Demo",
+        email: "comercial.captalento@gmail.com",
+        senhaHash: await bcrypt.hash("comercial123", 10),
+        role: "comercial",
+        ativo: true,
+      },
+    });
+    comercialEmail = comercial.email;
+  }
+
   console.log("Seed concluído:");
   console.log(" - admin:", admin.email);
   console.log(" - recrutador:", jullya.email);
+  if (comercialEmail) {
+    console.log(" - comercial:", comercialEmail);
+  } else {
+    console.log(
+      " - comercial: pulado (rode com SEED_COMERCIAL=1 pra criar)",
+    );
+  }
 }
 
 main()

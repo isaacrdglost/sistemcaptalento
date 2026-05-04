@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { criarVaga } from "@/app/vagas/nova/actions";
 import { getFluxoSpec } from "@/lib/flows";
+import type { AppRole } from "@/lib/auth";
 import type { Fluxo } from "@prisma/client";
 
 interface NovaVagaFormProps {
@@ -14,7 +15,7 @@ interface NovaVagaFormProps {
   currentUser: {
     id: string;
     nome: string;
-    role: "recruiter" | "admin";
+    role: AppRole;
   };
 }
 

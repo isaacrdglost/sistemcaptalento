@@ -12,12 +12,16 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Sparkles,
+  Target,
+  Trophy,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AppRole } from "@/lib/auth";
 
 interface SidebarProps {
-  role: "recruiter" | "admin";
+  role: AppRole;
 }
 
 interface NavItem {
@@ -25,17 +29,21 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
-  adminOnly?: boolean;
+  /** Quais roles veem esse item. Ausente = todos os roles autenticados. */
+  roles?: AppRole[];
 }
 
 interface NavSection {
   title: string;
   items: NavItem[];
+  /** Quais roles veem essa seção. Filtra antes da iteração de itens. */
+  roles?: AppRole[];
 }
 
 const SECTIONS: NavSection[] = [
   {
     title: "Trabalho",
+    roles: ["recruiter", "admin"],
     items: [
       {
         href: "/dashboard",
@@ -52,20 +60,48 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: "Vendas",
+    roles: ["comercial", "admin"],
+    items: [
+      {
+        href: "/comercial",
+        label: "Painel",
+        icon: Briefcase,
+        exact: true,
+      },
+      {
+        href: "/comercial/leads",
+        label: "Pipeline",
+        icon: Target,
+      },
+      {
+        href: "/comercial/metas",
+        label: "Metas",
+        icon: Trophy,
+      },
+    ],
+  },
+  {
     title: "Pessoas",
     items: [
-      { href: "/talentos", label: "Talentos", icon: UserSearch },
+      {
+        href: "/talentos",
+        label: "Talentos",
+        icon: UserSearch,
+        roles: ["recruiter", "admin"],
+      },
+      // Clientes aparece pros 3 (comercial vê em modo somente-leitura)
       { href: "/clientes", label: "Clientes", icon: Building2 },
     ],
   },
   {
     title: "Sistema",
+    roles: ["admin"],
     items: [
       {
         href: "/admin",
         label: "Administração",
         icon: Settings,
-        adminOnly: true,
       },
     ],
   },
@@ -110,7 +146,7 @@ export function Sidebar({ role }: SidebarProps) {
         )}
       >
         <Link
-          href="/dashboard"
+          href="/"
           className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
           <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-royal text-sm font-bold text-white shadow-pop">
@@ -127,43 +163,47 @@ export function Sidebar({ role }: SidebarProps) {
 
       {/* Nav agrupada */}
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
-        {SECTIONS.map((section) => {
-          const items = section.items.filter(
-            (i) => !i.adminOnly || role === "admin",
-          );
-          if (items.length === 0) return null;
+        {SECTIONS.filter((s) => !s.roles || s.roles.includes(role)).map(
+          (section) => {
+            const items = section.items.filter(
+              (i) => !i.roles || i.roles.includes(role),
+            );
+            if (items.length === 0) return null;
 
-          return (
-            <div key={section.title}>
-              {!collapsed && (
-                <div className="mb-2 px-3 text-eyebrow uppercase text-slate-400">
-                  {section.title}
+            return (
+              <div key={section.title}>
+                {!collapsed && (
+                  <div className="mb-2 px-3 text-eyebrow uppercase text-slate-400">
+                    {section.title}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  {items.map((item) => {
+                    const active = isActive(item);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "nav-item",
+                          active && "nav-item-active",
+                          collapsed && "justify-center px-2",
+                        )}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        <Icon size={18} className="shrink-0" />
+                        {!collapsed && (
+                          <span className="truncate">{item.label}</span>
+                        )}
+                      </Link>
+                    );
+                  })}
                 </div>
-              )}
-              <div className="space-y-1">
-                {items.map((item) => {
-                  const active = isActive(item);
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "nav-item",
-                        active && "nav-item-active",
-                        collapsed && "justify-center px-2",
-                      )}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <Icon size={18} className="shrink-0" />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Link>
-                  );
-                })}
               </div>
-            </div>
-          );
-        })}
+            );
+          },
+        )}
       </nav>
 
       {/* Dica de atalho — aparece quando expandida */}
@@ -174,8 +214,7 @@ export function Sidebar({ role }: SidebarProps) {
             Dica
           </div>
           <p className="mt-1 text-xs text-slate-600">
-            Aperte{" "}
-            <kbd className="kbd">Ctrl</kbd>{" "}
+            Aperte <kbd className="kbd">Ctrl</kbd>{" "}
             <kbd className="kbd">K</kbd> pra buscar qualquer coisa.
           </p>
         </div>

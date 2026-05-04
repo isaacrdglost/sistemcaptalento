@@ -54,6 +54,25 @@ async function requireUser() {
   return session;
 }
 
+/**
+ * Comercial vê Clientes em modo somente-leitura. Qualquer ação de mutação
+ * deve rejeitar essa role no servidor (defesa em profundidade — UI já
+ * desabilita os campos, mas devtools poderia bypassar).
+ */
+type GuardSession = NonNullable<Awaited<ReturnType<typeof requireUser>>>;
+type GuardResult =
+  | { ok: true; session: GuardSession }
+  | { ok: false; error: string };
+
+async function requireUserPodeEditar(): Promise<GuardResult> {
+  const session = await requireUser();
+  if (!session) return { ok: false, error: "Não autenticado" };
+  if (session.user.role === "comercial") {
+    return { ok: false, error: "Sem permissão" };
+  }
+  return { ok: true, session };
+}
+
 function firstError(err: z.ZodError): string {
   return err.issues[0]?.message ?? "Dados inválidos";
 }
@@ -66,8 +85,8 @@ function genericError(err: unknown, fallback: string): string {
 export async function criarCliente(
   data: ClienteInput,
 ): Promise<ActionResult<{ id: string }>> {
-  const session = await requireUser();
-  if (!session) return { error: "Não autenticado" };
+  const guard = await requireUserPodeEditar();
+  if (!guard.ok) return { error: guard.error };
 
   const parsed = clienteSchema.safeParse(data);
   if (!parsed.success) return { error: firstError(parsed.error) };
@@ -105,8 +124,8 @@ export async function atualizarCliente(
   id: string,
   data: ClienteInput,
 ): Promise<ActionResult> {
-  const session = await requireUser();
-  if (!session) return { error: "Não autenticado" };
+  const guard = await requireUserPodeEditar();
+  if (!guard.ok) return { error: guard.error };
 
   const parsed = clienteSchema.safeParse(data);
   if (!parsed.success) return { error: firstError(parsed.error) };
@@ -148,8 +167,11 @@ export async function atualizarCliente(
 
 export async function arquivarCliente(id: string): Promise<ActionResult> {
   const session = await requireUser();
-  if (!session || session.user.role !== "admin") {
-    return { error: "Apenas admin pode arquivar clientes" };
+  if (
+    !session ||
+    (session.user.role !== "admin" && session.user.role !== "recruiter")
+  ) {
+    return { error: "Sem permissão" };
   }
   try {
     await prisma.cliente.update({ where: { id }, data: { ativo: false } });
@@ -162,8 +184,11 @@ export async function arquivarCliente(id: string): Promise<ActionResult> {
 
 export async function reativarCliente(id: string): Promise<ActionResult> {
   const session = await requireUser();
-  if (!session || session.user.role !== "admin") {
-    return { error: "Apenas admin pode reativar clientes" };
+  if (
+    !session ||
+    (session.user.role !== "admin" && session.user.role !== "recruiter")
+  ) {
+    return { error: "Sem permissão" };
   }
   try {
     await prisma.cliente.update({ where: { id }, data: { ativo: true } });

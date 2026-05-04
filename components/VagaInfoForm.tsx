@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import type { Fluxo, Modelo, Senioridade, Vaga } from "@prisma/client";
+import type { AppRole } from "@/lib/auth";
 import {
   atualizarVaga,
   encerrarVaga,
@@ -15,7 +16,7 @@ interface VagaInfoFormProps {
   vaga: Vaga & { recrutador?: { id: string; nome: string } | null };
   recrutadores: { id: string; nome: string }[];
   clientes: { id: string; razaoSocial: string; nomeFantasia: string | null }[];
-  role: "recruiter" | "admin";
+  role: AppRole;
 }
 
 function toDateInputValue(date: Date | null | undefined): string {

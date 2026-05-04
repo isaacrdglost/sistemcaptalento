@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Fluxo, StatusCandidato } from "@prisma/client";
+import type {
+  EstagioLead,
+  Fluxo,
+  Prisma,
+  StatusCandidato,
+} from "@prisma/client";
 
 const MAX_RESULTS = 20;
 const FALLBACK_LIMIT = 10;
@@ -38,11 +43,20 @@ export interface SearchTalento {
   area: string | null;
 }
 
+export interface SearchLead {
+  id: string;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  estagio: EstagioLead;
+  responsavelNome: string | null;
+}
+
 export interface SearchResponse {
   vagas: SearchVaga[];
   candidatos: SearchCandidato[];
   clientes: SearchCliente[];
   talentos: SearchTalento[];
+  leads: SearchLead[];
 }
 
 export async function GET(request: Request) {
@@ -56,13 +70,37 @@ export async function GET(request: Request) {
     const qRaw = searchParams.get("q") ?? "";
     const q = qRaw.trim();
     const isAdmin = session.user.role === "admin";
+    const isComercial = session.user.role === "comercial";
     const userId = session.user.id;
 
-    // Filtro de vaga baseado em role
-    const vagaScope = isAdmin ? {} : { recrutadorId: userId };
+    // Filtro de vaga baseado em role. Comercial não vê vagas/candidatos/
+    // talentos — só leads + clientes (read-only). Usamos um where impossível
+    // pra "zerar" os resultados sem mudar a estrutura da query.
+    const NUNCA: Prisma.VagaWhereInput = { id: "__nunca__" };
+    const vagaScope: Prisma.VagaWhereInput = isComercial
+      ? NUNCA
+      : isAdmin
+        ? {}
+        : { recrutadorId: userId };
+    // Talentos: comercial não vê. Outros, vê todos ativos.
+    const talentoExtraWhere: Prisma.TalentoWhereInput = isComercial
+      ? { id: "__nunca__" }
+      : {};
+
+    // Filtro de leads — comercial só vê os próprios + sem responsável;
+    // admin vê tudo; recruiter não recebe leads (excluímos com `null`).
+    const leadScopeWhere: Prisma.LeadWhereInput | null =
+      session.user.role === "recruiter"
+        ? null
+        : isAdmin
+          ? { arquivado: false }
+          : {
+              arquivado: false,
+              OR: [{ responsavelId: userId }, { responsavelId: null }],
+            };
 
     if (q.length === 0) {
-      const [vagasRaw, candidatosRaw, clientesRaw, talentosRaw] =
+      const [vagasRaw, candidatosRaw, clientesRaw, talentosRaw, leadsRaw] =
         await Promise.all([
           prisma.vaga.findMany({
             where: vagaScope,
@@ -100,7 +138,7 @@ export async function GET(request: Request) {
             },
           }),
           prisma.talento.findMany({
-            where: { ativo: true },
+            where: { AND: [{ ativo: true }, talentoExtraWhere] },
             orderBy: { createdAt: "desc" },
             take: FALLBACK_LIMIT,
             select: {
@@ -111,6 +149,28 @@ export async function GET(request: Request) {
               area: true,
             },
           }),
+          leadScopeWhere
+            ? prisma.lead.findMany({
+                where: leadScopeWhere,
+                orderBy: { updatedAt: "desc" },
+                take: FALLBACK_LIMIT,
+                select: {
+                  id: true,
+                  razaoSocial: true,
+                  nomeFantasia: true,
+                  estagio: true,
+                  responsavel: { select: { nome: true } },
+                },
+              })
+            : Promise.resolve(
+                [] as Array<{
+                  id: string;
+                  razaoSocial: string;
+                  nomeFantasia: string | null;
+                  estagio: EstagioLead;
+                  responsavel: { nome: string } | null;
+                }>,
+              ),
         ]);
 
       const response: SearchResponse = {
@@ -135,11 +195,29 @@ export async function GET(request: Request) {
           senioridade: t.senioridade,
           area: t.area,
         })),
+        leads: leadsRaw.map((l) => ({
+          id: l.id,
+          razaoSocial: l.razaoSocial,
+          nomeFantasia: l.nomeFantasia,
+          estagio: l.estagio,
+          responsavelNome: l.responsavel?.nome ?? null,
+        })),
       };
       return NextResponse.json(response);
     }
 
-    const [vagasRaw, candidatosRaw, clientesRaw, talentosRaw] =
+    const cnpjDigits = q.replace(/\D+/g, "");
+    const leadOR: Prisma.LeadWhereInput[] = [
+      { razaoSocial: { contains: q, mode: "insensitive" } },
+      { nomeFantasia: { contains: q, mode: "insensitive" } },
+      { contatoNome: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+    if (cnpjDigits.length > 0) {
+      leadOR.push({ cnpj: { contains: cnpjDigits } });
+    }
+
+    const [vagasRaw, candidatosRaw, clientesRaw, talentosRaw, leadsRaw] =
       await Promise.all([
         prisma.vaga.findMany({
           where: {
@@ -185,7 +263,7 @@ export async function GET(request: Request) {
             OR: [
               { razaoSocial: { contains: q, mode: "insensitive" } },
               { nomeFantasia: { contains: q, mode: "insensitive" } },
-              { cnpj: { contains: q.replace(/\D+/g, ""), mode: "insensitive" } },
+              { cnpj: { contains: cnpjDigits, mode: "insensitive" } },
             ],
           },
           orderBy: { razaoSocial: "asc" },
@@ -201,6 +279,7 @@ export async function GET(request: Request) {
           where: {
             AND: [
               { ativo: true },
+              talentoExtraWhere,
               {
                 OR: [
                   { nome: { contains: q, mode: "insensitive" } },
@@ -221,6 +300,28 @@ export async function GET(request: Request) {
             area: true,
           },
         }),
+        leadScopeWhere
+          ? prisma.lead.findMany({
+              where: { AND: [leadScopeWhere, { OR: leadOR }] },
+              orderBy: { updatedAt: "desc" },
+              take: MAX_RESULTS,
+              select: {
+                id: true,
+                razaoSocial: true,
+                nomeFantasia: true,
+                estagio: true,
+                responsavel: { select: { nome: true } },
+              },
+            })
+          : Promise.resolve(
+              [] as Array<{
+                id: string;
+                razaoSocial: string;
+                nomeFantasia: string | null;
+                estagio: EstagioLead;
+                responsavel: { nome: string } | null;
+              }>,
+            ),
       ]);
 
     const response: SearchResponse = {
@@ -244,6 +345,13 @@ export async function GET(request: Request) {
         email: t.email,
         senioridade: t.senioridade,
         area: t.area,
+      })),
+      leads: leadsRaw.map((l) => ({
+        id: l.id,
+        razaoSocial: l.razaoSocial,
+        nomeFantasia: l.nomeFantasia,
+        estagio: l.estagio,
+        responsavelNome: l.responsavel?.nome ?? null,
       })),
     };
     return NextResponse.json(response);

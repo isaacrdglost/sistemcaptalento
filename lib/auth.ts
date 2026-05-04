@@ -48,7 +48,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as "recruiter" | "admin";
+        session.user.role = token.role as AppRole;
       }
       return session;
     },
@@ -56,7 +56,7 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-export type AppRole = "recruiter" | "admin";
+export type AppRole = "recruiter" | "admin" | "comercial";
 
 declare module "next-auth" {
   interface Session {
