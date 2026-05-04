@@ -56,6 +56,14 @@ export default async function VagaDetailPage({ params }: PageProps) {
             include: { autor: { select: { nome: true } } },
             orderBy: { createdAt: "desc" },
           },
+          contratacao: {
+            select: {
+              id: true,
+              status: true,
+              dataAdmissao: true,
+              dataFimGarantia: true,
+            },
+          },
         },
       },
       recrutador: { select: { id: true, nome: true } },
@@ -299,6 +307,16 @@ export default async function VagaDetailPage({ params }: PageProps) {
                 vagaId={vaga.id}
                 candidatos={vaga.candidatos}
                 canEdit={canEdit}
+                vagaResumo={{
+                  titulo: vaga.titulo,
+                  modelo: vaga.modelo,
+                  salarioMin: vaga.salarioMin
+                    ? Number(vaga.salarioMin)
+                    : null,
+                  salarioMax: vaga.salarioMax
+                    ? Number(vaga.salarioMax)
+                    : null,
+                }}
               />
             </div>
           </div>

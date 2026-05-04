@@ -17,6 +17,11 @@ import { AdminMetrics } from "@/components/AdminMetrics";
 import { RecrutadorFilter } from "@/components/RecrutadorFilter";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  GarantiasWidget,
+  type GarantiaWidgetItem,
+} from "@/components/GarantiasWidget";
+import { aplicarVencimentosGarantia } from "@/lib/garantia";
 
 interface DashboardPageProps {
   searchParams?: { rec?: string };
@@ -144,6 +149,39 @@ export default async function DashboardPage({
   const adminMetrics = isAdmin
     ? computeAdminMetrics(todasVagas, now)
     : null;
+
+  await aplicarVencimentosGarantia();
+  const contratacoesVisibilidade = isAdmin
+    ? {}
+    : { recrutadoraId: session.user.id };
+  const [garantiasVigentesRaw, totalGarantiasVigentes, totalGarantiasAcionadas] =
+    await Promise.all([
+      prisma.contratacao.findMany({
+        where: { ...contratacoesVisibilidade, status: "em_garantia" },
+        orderBy: { dataFimGarantia: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          dataAdmissao: true,
+          dataFimGarantia: true,
+          candidato: { select: { nome: true } },
+          cliente: { select: { razaoSocial: true } },
+        },
+      }),
+      prisma.contratacao.count({
+        where: { ...contratacoesVisibilidade, status: "em_garantia" },
+      }),
+      prisma.contratacao.count({
+        where: { ...contratacoesVisibilidade, status: "garantia_acionada" },
+      }),
+    ]);
+  const garantiasVigentes: GarantiaWidgetItem[] = garantiasVigentesRaw.map((g) => ({
+    id: g.id,
+    candidatoNome: g.candidato.nome,
+    clienteRazaoSocial: g.cliente.razaoSocial,
+    dataAdmissao: g.dataAdmissao,
+    dataFimGarantia: g.dataFimGarantia,
+  }));
 
   const nome = (session.user.name ?? "").split(" ")[0] || "colega";
   const greeting = saudacao(now.getHours());
@@ -305,6 +343,15 @@ export default async function DashboardPage({
             maxBucket={adminMetrics.maxBucket}
             criadasUltimos30d={adminMetrics.criadasUltimos30d}
             topRecrutadores={adminMetrics.topRecrutadores}
+          />
+        ) : null}
+
+        {/* Garantias pós-contratação */}
+        {totalGarantiasVigentes > 0 || totalGarantiasAcionadas > 0 ? (
+          <GarantiasWidget
+            vigentes={garantiasVigentes}
+            totalVigentes={totalGarantiasVigentes}
+            totalAcionadas={totalGarantiasAcionadas}
           />
         ) : null}
 

@@ -62,6 +62,13 @@ enum TipoAtividade {
   candidatos_importados_agenda
   analise_ficha_registrada
   talento_vinculado
+  candidato_contratado
+  garantia_finalizada_ok
+  garantia_acionada
+  garantia_triada
+  reposicao_aberta
+  reposicao_concluida
+  checkin_pos_contratacao
 }
 
 enum ResultadoAnalise {
@@ -134,6 +141,26 @@ enum CanalTemplate {
   email
 }
 
+enum StatusContratacao {
+  em_garantia
+  garantia_ok
+  garantia_acionada
+  reposto
+  encerrado
+}
+
+enum MotivoSaida {
+  pedido_cliente
+  pedido_candidato
+  acordo_mutuo
+  inadequacao_tecnica
+  inadequacao_comportamental
+  reestruturacao_cliente
+  mudanca_escopo
+  falha_onboarding_cliente
+  outro
+}
+
 model User {
   id        String   @id @default(cuid())
   nome      String
@@ -148,68 +175,74 @@ model User {
   /// Null quando o usuário ainda não configurou.
   calendarIcsUrlEnc String?
 
-  vagas             Vaga[]            @relation("RecrutadorVagas")
-  atividades        Atividade[]
-  analisesFicha     AnaliseFicha[]
-  leadsResponsavel  Lead[]            @relation("LeadResponsavel")
-  atividadesLead    AtividadeLead[]
+  vagas               Vaga[]          @relation("RecrutadorVagas")
+  atividades          Atividade[]
+  analisesFicha       AnaliseFicha[]
+  leadsResponsavel    Lead[]          @relation("LeadResponsavel")
+  atividadesLead      AtividadeLead[]
+  contratacoes        Contratacao[]   @relation("ContratacaoRecrutadora")
+  triagensContratacao Contratacao[]   @relation("ContratacaoTriadoPor")
+  checkIns            CheckIn[]       @relation("CheckInAutor")
 }
 
 model Cliente {
-  id                  String   @id @default(cuid())
-  razaoSocial         String
-  nomeFantasia        String?
-  cnpj                String?  @unique
-  contatoResponsavel  String?
-  emailPrincipal      String?
-  telefone            String?
-  segmento            String?
-  obs                 String?
-  ativo               Boolean  @default(true)
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(cuid())
+  razaoSocial        String
+  nomeFantasia       String?
+  cnpj               String?  @unique
+  contatoResponsavel String?
+  emailPrincipal     String?
+  telefone           String?
+  segmento           String?
+  obs                String?
+  ativo              Boolean  @default(true)
+  createdAt          DateTime @default(now())
 
-  vagas Vaga[]
-  leads Lead[]
+  vagas        Vaga[]
+  leads        Lead[]
+  contratacoes Contratacao[]
 
   @@index([ativo])
 }
 
 model Vaga {
-  id                         String       @id @default(cuid())
-  titulo                     String
+  id                        String    @id @default(cuid())
+  titulo                    String
   /// Legado: nome do cliente em texto livre. Mantido pra histórico e
   /// compatibilidade com dados antigos. Novos registros DEVEM usar
   /// clienteId — este campo é denormalizado a partir do Cliente.
-  cliente                    String
-  clienteId                  String?
-  recrutadorId               String
-  obs                        String?
-  dataBriefing               DateTime
-  dataPublicacao             DateTime?
-  dataPrazo                  DateTime?
-  fluxo                      Fluxo        @default(padrao)
-  shortlistEntregue          Boolean      @default(false)
-  dataShortlistEntregue      DateTime?
-  dataUltimoContatoCliente   DateTime?
-  dataTriagemConfirmada      DateTime?
-  dataEntrevistasConfirmada  DateTime?
-  dataShortlistInterna       DateTime?
-  encerrada                  Boolean      @default(false)
-  dataEncerramento           DateTime?
-  createdAt                  DateTime     @default(now())
+  cliente                   String
+  clienteId                 String?
+  recrutadorId              String
+  obs                       String?
+  dataBriefing              DateTime
+  dataPublicacao            DateTime?
+  dataPrazo                 DateTime?
+  fluxo                     Fluxo     @default(padrao)
+  shortlistEntregue         Boolean   @default(false)
+  dataShortlistEntregue     DateTime?
+  dataUltimoContatoCliente  DateTime?
+  dataTriagemConfirmada     DateTime?
+  dataEntrevistasConfirmada DateTime?
+  dataShortlistInterna      DateTime?
+  encerrada                 Boolean   @default(false)
+  dataEncerramento          DateTime?
+  createdAt                 DateTime  @default(now())
 
   // Atributos de apresentação/filtro (novos no upgrade)
-  senioridade   Senioridade?
-  modelo        Modelo?
-  localizacao   String?
-  salarioMin    Decimal?      @db.Decimal(10, 2)
-  salarioMax    Decimal?      @db.Decimal(10, 2)
-  area          String?
+  senioridade Senioridade?
+  modelo      Modelo?
+  localizacao String?
+  salarioMin  Decimal?     @db.Decimal(10, 2)
+  salarioMax  Decimal?     @db.Decimal(10, 2)
+  area        String?
 
-  recrutador User        @relation("RecrutadorVagas", fields: [recrutadorId], references: [id])
-  clienteRef Cliente?    @relation(fields: [clienteId], references: [id])
-  candidatos Candidato[]
-  atividades Atividade[]
+  recrutador        User          @relation("RecrutadorVagas", fields: [recrutadorId], references: [id])
+  clienteRef        Cliente?      @relation(fields: [clienteId], references: [id])
+  candidatos        Candidato[]
+  atividades        Atividade[]
+  contratacoes      Contratacao[] @relation("VagaContratacao")
+  reposicoesParaMim Contratacao[] @relation("VagaReposicao")
 
   @@index([recrutadorId])
   @@index([clienteId])
@@ -218,32 +251,33 @@ model Vaga {
 }
 
 model Candidato {
-  id                      String          @id @default(cuid())
-  vagaId                  String
-  talentoId               String?
-  nome                    String
-  status                  StatusCandidato @default(triagem)
-  email                   String?
-  telefone                String?
-  linkedinUrl             String?
-  linkCV                  String?
-  cvArquivoUrl            String?
-  cvNomeArquivo           String?
-  cpf                     String?
-  notas                   String?
-  score                   Int?            // 1-5
-  etapaDesde              DateTime        @default(now())
-  createdAt               DateTime        @default(now())
+  id            String          @id @default(cuid())
+  vagaId        String
+  talentoId     String?
+  nome          String
+  status        StatusCandidato @default(triagem)
+  email         String?
+  telefone      String?
+  linkedinUrl   String?
+  linkCV        String?
+  cvArquivoUrl  String?
+  cvNomeArquivo String?
+  cpf           String?
+  notas         String?
+  score         Int? // 1-5
+  etapaDesde    DateTime        @default(now())
+  createdAt     DateTime        @default(now())
 
   /// Origem do registro. "manual" | "calendar" | "talento" | "site" etc.
-  fonteOrigem             String?         @default("manual")
+  fonteOrigem    String? @default("manual")
   /// ID externo do evento/origem — usado para detectar duplicatas em
   /// importações sucessivas (ex.: UID de um VEVENT do Google Calendar).
-  fonteExternoId          String?
+  fonteExternoId String?
 
-  vaga      Vaga           @relation(fields: [vagaId], references: [id], onDelete: Cascade)
-  talento   Talento?       @relation(fields: [talentoId], references: [id], onDelete: SetNull)
-  analises  AnaliseFicha[]
+  vaga        Vaga           @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  talento     Talento?       @relation(fields: [talentoId], references: [id], onDelete: SetNull)
+  analises    AnaliseFicha[]
+  contratacao Contratacao?
 
   @@index([vagaId])
   @@index([talentoId])
@@ -252,29 +286,29 @@ model Candidato {
 }
 
 model Talento {
-  id             String       @id @default(cuid())
-  nome           String
-  email          String?      @unique
-  telefone       String?
-  linkedinUrl    String?
-  cidade         String?
-  estado         String?
-  senioridade    Senioridade?
-  area           String?
-  tags           String[]     @default([])
-  linkCV         String?
-  cvArquivoUrl   String?
-  cvNomeArquivo  String?
-  notas          String?
-  ativo          Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  nome          String
+  email         String?      @unique
+  telefone      String?
+  linkedinUrl   String?
+  cidade        String?
+  estado        String?
+  senioridade   Senioridade?
+  area          String?
+  tags          String[]     @default([])
+  linkCV        String?
+  cvArquivoUrl  String?
+  cvNomeArquivo String?
+  notas         String?
+  ativo         Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   /// Origem do cadastro. "manual" (recrutador cadastrou aqui) ou
   /// "site" (cadastro público do rhcaptalento.com.br).
-  fonteOrigem    String       @default("manual")
+  fonteOrigem String @default("manual")
 
-  candidatos     Candidato[]
+  candidatos Candidato[]
 
   @@index([ativo])
   @@index([senioridade])
@@ -282,15 +316,15 @@ model Talento {
 }
 
 model AnaliseFicha {
-  id             String           @id @default(cuid())
-  candidatoId    String
-  cpf            String
-  resultado      ResultadoAnalise @default(pendente)
-  provedor       String           @default("escavador") // escavador | jusbrasil | manual | outro
-  notas          String?
-  linkExterno    String?
-  autorId        String
-  createdAt      DateTime         @default(now())
+  id          String           @id @default(cuid())
+  candidatoId String
+  cpf         String
+  resultado   ResultadoAnalise @default(pendente)
+  provedor    String           @default("escavador") // escavador | jusbrasil | manual | outro
+  notas       String?
+  linkExterno String?
+  autorId     String
+  createdAt   DateTime         @default(now())
 
   candidato Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
   autor     User      @relation(fields: [autorId], references: [id])
@@ -300,14 +334,14 @@ model AnaliseFicha {
 }
 
 model Atividade {
-  id            String        @id @default(cuid())
-  vagaId        String
-  autorId       String
-  tipo          TipoAtividade
-  descricao     String
+  id        String        @id @default(cuid())
+  vagaId    String
+  autorId   String
+  tipo      TipoAtividade
+  descricao String
   /// metadados livres (ex.: status anterior/novo, nome de candidato, etc.)
-  metadata      Json?
-  createdAt     DateTime      @default(now())
+  metadata  Json?
+  createdAt DateTime      @default(now())
 
   vaga  Vaga @relation(fields: [vagaId], references: [id], onDelete: Cascade)
   autor User @relation(fields: [autorId], references: [id])
@@ -317,25 +351,25 @@ model Atividade {
 }
 
 model Lead {
-  id              String       @id @default(cuid())
-  razaoSocial     String
-  nomeFantasia    String?
-  cnpj            String?
-  segmento        String?
-  site            String?
+  id           String  @id @default(cuid())
+  razaoSocial  String
+  nomeFantasia String?
+  cnpj         String?
+  segmento     String?
+  site         String?
 
   // contato
-  contatoNome     String?
-  contatoCargo    String?
-  email           String?
-  telefone        String?
-  linkedinUrl     String?
+  contatoNome  String?
+  contatoCargo String?
+  email        String?
+  telefone     String?
+  linkedinUrl  String?
 
   // captura — texto livre vindo do form do site, e tracking de campanhas
-  mensagem        String?
-  utmSource       String?
-  utmMedium       String?
-  utmCampaign     String?
+  mensagem    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
 
   // pipeline
   estagio          EstagioLead @default(novo)
@@ -345,23 +379,23 @@ model Lead {
   motivoPerda      String?
 
   // origem
-  origem          OrigemLead   @default(site)
+  origem          OrigemLead @default(site)
   origemDescricao String?
 
   // ownership — nullable: lead pode ficar na "caixa de entrada" compartilhada
-  responsavelId   String?
-  responsavel     User?        @relation("LeadResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  responsavelId String?
+  responsavel   User?   @relation("LeadResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
 
   // conversão — preenchido quando estagio = ganho
-  clienteId       String?
-  cliente         Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
-  dataGanho       DateTime?
-  dataPerda       DateTime?
+  clienteId String?
+  cliente   Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  dataGanho DateTime?
+  dataPerda DateTime?
 
-  obs             String?
+  obs String?
 
   // Tags livres (criadas pelo comercial com autocomplete das tags já usadas)
-  tags            String[]    @default([])
+  tags String[] @default([])
 
   // Qualificação B2B — entender a vaga que a empresa precisa preencher
   cargoInteresse        String?
@@ -372,10 +406,10 @@ model Lead {
   modalidade            ModalidadeContratacao?
   jaTrabalhouComAgencia Boolean?
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  atividades      AtividadeLead[]
+  atividades AtividadeLead[]
 
   @@index([responsavelId, estagio])
   @@index([estagio, arquivado])
@@ -403,21 +437,100 @@ model MensagemTemplate {
 }
 
 model AtividadeLead {
-  id              String             @id @default(cuid())
-  leadId          String
-  autorId         String
-  tipo            TipoAtividadeLead
-  descricao       String
-  metadata        Json?
+  id           String            @id @default(cuid())
+  leadId       String
+  autorId      String
+  tipo         TipoAtividadeLead
+  descricao    String
+  metadata     Json?
   // pra follow-ups: agendadoPara é a data alvo, concluidoEm marca a finalização
-  agendadoPara    DateTime?
-  concluidoEm     DateTime?
-  createdAt       DateTime           @default(now())
+  agendadoPara DateTime?
+  concluidoEm  DateTime?
+  createdAt    DateTime          @default(now())
 
-  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  autor  User @relation(fields: [autorId], references: [id])
+  lead  Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  autor User @relation(fields: [autorId], references: [id])
 
   @@index([leadId, createdAt])
   @@index([autorId, agendadoPara])
   @@index([agendadoPara, concluidoEm])
+}
+
+model Contratacao {
+  id            String  @id @default(cuid())
+  candidatoId   String  @unique
+  vagaId        String
+  clienteId     String
+  recrutadoraId String?
+
+  dataAdmissao         DateTime
+  dataFimGarantia      DateTime
+  /// URL @vercel/blob com print/PDF do cliente confirmando a admissão.
+  /// Não-obrigatório, mas é a prova ouro caso a data seja contestada.
+  admissaoEvidenciaUrl String?
+
+  // Snapshot dos termos no fechamento — base de comparação se a garantia
+  // for acionada e a defesa do cliente alegar "mudança de escopo".
+  cargoSnapshot     String
+  salarioSnapshot   String
+  modeloSnapshot    Modelo
+  escopoSnapshot    String?
+  observacoesTermos String?
+
+  status StatusContratacao @default(em_garantia)
+
+  // Saída — preenchidos quando a garantia é acionada
+  dataSaida                 DateTime?
+  motivoSaida               MotivoSaida?
+  motivoSaidaDetalhe        String?
+  /// Checklist das exclusões da proposta (mudanca_escopo / reestruturacao /
+  /// falha_onboarding) — guardamos o snapshot do julgamento como JSON
+  /// pra auditoria depois.
+  exclusoesAvaliadas        Json?
+  saidaDentroGarantia       Boolean?
+  saidaDentroGarantiaJustif String?
+  triadoPorId               String?
+  triadoEm                  DateTime?
+
+  // Reposição
+  reposicaoVagaId      String?
+  reposicaoCandidatoId String?
+  reposicaoConcluidaEm DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidato     Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  vaga          Vaga      @relation("VagaContratacao", fields: [vagaId], references: [id])
+  vagaReposicao Vaga?     @relation("VagaReposicao", fields: [reposicaoVagaId], references: [id])
+  cliente       Cliente   @relation(fields: [clienteId], references: [id])
+  recrutadora   User?     @relation("ContratacaoRecrutadora", fields: [recrutadoraId], references: [id])
+  triadoPor     User?     @relation("ContratacaoTriadoPor", fields: [triadoPorId], references: [id])
+
+  checkIns CheckIn[]
+
+  @@index([clienteId, status])
+  @@index([dataFimGarantia, status])
+  @@index([recrutadoraId, status])
+}
+
+model CheckIn {
+  id            String    @id @default(cuid())
+  contratacaoId String
+  /// Dias após a admissão (7, 15, 25 nos check-ins automáticos)
+  diasApos      Int
+  agendadoPara  DateTime
+  realizadoEm   DateTime?
+  /// "ok" | "atencao" | "alerta"
+  resultado     String?
+  observacao    String?
+  autorId       String?
+
+  createdAt DateTime @default(now())
+
+  contratacao Contratacao @relation(fields: [contratacaoId], references: [id], onDelete: Cascade)
+  autor       User?       @relation("CheckInAutor", fields: [autorId], references: [id])
+
+  @@index([contratacaoId])
+  @@index([agendadoPara, realizadoEm])
 }

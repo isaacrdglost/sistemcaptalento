@@ -147,6 +147,48 @@ const ICON_BY_TIPO: Record<TipoAtividade, IconSpec> = {
     bg: "bg-lima-50",
     ring: "ring-lima-200",
   },
+  candidato_contratado: {
+    Icon: ShieldCheck,
+    color: "text-lima-700",
+    bg: "bg-lima-50",
+    ring: "ring-lima-200",
+  },
+  garantia_finalizada_ok: {
+    Icon: CheckCircle2,
+    color: "text-lima-700",
+    bg: "bg-lima-50",
+    ring: "ring-lima-200",
+  },
+  garantia_acionada: {
+    Icon: ShieldCheck,
+    color: "text-red-600",
+    bg: "bg-red-50",
+    ring: "ring-red-200",
+  },
+  garantia_triada: {
+    Icon: CheckCircle2,
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    ring: "ring-amber-200",
+  },
+  reposicao_aberta: {
+    Icon: Play,
+    color: "text-royal-600",
+    bg: "bg-royal-50",
+    ring: "ring-royal-200",
+  },
+  reposicao_concluida: {
+    Icon: CheckCircle2,
+    color: "text-lima-700",
+    bg: "bg-lima-50",
+    ring: "ring-lima-200",
+  },
+  checkin_pos_contratacao: {
+    Icon: CalendarCheck,
+    color: "text-royal-600",
+    bg: "bg-royal-50",
+    ring: "ring-royal-200",
+  },
 };
 
 function primeiroNome(nome: string | null | undefined): string {

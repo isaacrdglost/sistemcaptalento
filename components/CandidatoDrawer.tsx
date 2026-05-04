@@ -21,7 +21,9 @@ import {
 import type {
   AnaliseFicha,
   Candidato,
+  Modelo,
   ResultadoAnalise,
+  StatusContratacao,
   StatusCandidato,
 } from "@prisma/client";
 import {
@@ -32,20 +34,45 @@ import { formatDateBR, formatRelative } from "@/lib/business-days";
 import { formatCPF } from "@/lib/format";
 import { useConfirm } from "./ConfirmDialog";
 import { Select } from "@/components/ui/Select";
+import { ContratacaoModal } from "./ContratacaoModal";
+import {
+  diasRestantesGarantia,
+  resumoStatusGarantia,
+  toneGarantia,
+} from "@/lib/garantia";
+import { ShieldCheck } from "lucide-react";
 
 export type AnaliseFichaComAutor = AnaliseFicha & {
   autor: { nome: string };
 };
 
+export interface ContratacaoResumo {
+  id: string;
+  status: StatusContratacao;
+  dataAdmissao: Date;
+  dataFimGarantia: Date;
+}
+
 export type CandidatoComAnalises = Candidato & {
   analises: AnaliseFichaComAutor[];
+  contratacao?: ContratacaoResumo | null;
 };
+
+export interface VagaResumoParaDrawer {
+  titulo: string;
+  modelo: Modelo | null;
+  salarioMin: number | null;
+  salarioMax: number | null;
+}
 
 interface CandidatoDrawerProps {
   candidato: CandidatoComAnalises;
   canEdit: boolean;
   open: boolean;
   onClose: () => void;
+  /** Dados da vaga pra preencher o modal de contratação. Quando ausente,
+   * o botão "Marcar como contratado" não aparece. */
+  vagaResumo?: VagaResumoParaDrawer;
 }
 
 type Tab = "detalhes" | "ficha" | "notas";
@@ -225,12 +252,14 @@ export function CandidatoDrawer({
   canEdit,
   open,
   onClose,
+  vagaResumo,
 }: CandidatoDrawerProps) {
   const router = useRouter();
   const confirm = useConfirm();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [tab, setTab] = useState<Tab>("detalhes");
+  const [contratacaoModalOpen, setContratacaoModalOpen] = useState(false);
 
   const [nome, setNome] = useState(candidato.nome);
   const [email, setEmail] = useState(candidato.email ?? "");
@@ -565,6 +594,13 @@ export function CandidatoDrawer({
                 <X size={18} />
               </button>
             </header>
+
+            <ContratacaoSummaryCard
+              candidato={candidato}
+              canEdit={canEdit}
+              vagaResumo={vagaResumo}
+              onAbrirModal={() => setContratacaoModalOpen(true)}
+            />
 
             <div className="mt-6 flex gap-1 rounded-lg bg-slate-100 p-1">
               {tabsDisponiveis.map((t) => (
@@ -1144,6 +1180,91 @@ export function CandidatoDrawer({
           </motion.aside>
         </div>
       )}
+      {vagaResumo ? (
+        <ContratacaoModal
+          open={contratacaoModalOpen}
+          onClose={() => setContratacaoModalOpen(false)}
+          candidato={{ id: candidato.id, nome: candidato.nome }}
+          vaga={vagaResumo}
+        />
+      ) : null}
     </AnimatePresence>
+  );
+}
+
+interface ContratacaoSummaryCardProps {
+  candidato: CandidatoComAnalises;
+  canEdit: boolean;
+  vagaResumo: VagaResumoParaDrawer | undefined;
+  onAbrirModal: () => void;
+}
+
+function ContratacaoSummaryCard({
+  candidato,
+  canEdit,
+  vagaResumo,
+  onAbrirModal,
+}: ContratacaoSummaryCardProps) {
+  const c = candidato.contratacao;
+
+  if (c) {
+    const tone = toneGarantia(c.status, c.dataFimGarantia);
+    const dias = diasRestantesGarantia(c.dataFimGarantia);
+    const toneClasses: Record<typeof tone, string> = {
+      lima: "border-lima-200 bg-lima-50 text-lima-700",
+      amber: "border-amber-200 bg-amber-50 text-amber-700",
+      red: "border-red-200 bg-red-50 text-red-700",
+      slate: "border-line bg-slate-50 text-slate-600",
+    };
+    return (
+      <div
+        className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 ${toneClasses[tone]}`}
+      >
+        <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+            Contratação
+          </div>
+          <div className="text-sm font-semibold">
+            {resumoStatusGarantia(c)}
+          </div>
+          <div className="mt-0.5 text-xs opacity-80">
+            Admissão {formatDateBR(c.dataAdmissao)} · Garantia até{" "}
+            {formatDateBR(c.dataFimGarantia)}
+            {c.status === "em_garantia" && dias > 0
+              ? ` (${dias}d)`
+              : ""}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const podeMarcar =
+    canEdit &&
+    vagaResumo !== undefined &&
+    (candidato.status === "aprovado" || candidato.status === "shortlist");
+
+  if (!podeMarcar) return null;
+
+  return (
+    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-lima-200 bg-lima-50/40 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-semibold uppercase tracking-wide text-lima-700">
+          Pronto pra contratar?
+        </div>
+        <div className="text-xs text-slate-600">
+          Registre a admissão e a garantia de 30d começa a contar.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onAbrirModal}
+        className="btn-primary shrink-0 text-xs"
+      >
+        <ShieldCheck size={14} />
+        Marcar como contratado
+      </button>
+    </div>
   );
 }

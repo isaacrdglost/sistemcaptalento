@@ -29,7 +29,8 @@ export default withAuth(
         pathname === "/dashboard" ||
         pathname.startsWith("/dashboard/") ||
         pathname.startsWith("/vagas") ||
-        pathname.startsWith("/talentos");
+        pathname.startsWith("/talentos") ||
+        pathname.startsWith("/contratacoes");
       if (operacional) {
         return NextResponse.redirect(new URL("/comercial", req.url));
       }
@@ -56,5 +57,6 @@ export const config = {
     "/configuracoes/:path*",
     "/admin/:path*",
     "/comercial/:path*",
+    "/contratacoes/:path*",
   ],
 };
