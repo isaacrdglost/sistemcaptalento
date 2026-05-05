@@ -202,6 +202,7 @@ export function Sidebar({ role }: SidebarProps) {
                       <Link
                         key={item.href}
                         href={item.href}
+                        prefetch={false}
                         className={cn(
                           "nav-item",
                           active && "nav-item-active",

@@ -129,7 +129,10 @@ export default async function ReposicoesPage({ searchParams }: PageProps) {
         email: session.user.email ?? "",
         role: session.user.role,
       }}
-      breadcrumbs={[{ label: "Trabalho" }, { label: "Reposições" }]}
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Reposições" },
+      ]}
     >
       <div className="container-app space-y-6">
         <PageHeader

@@ -50,7 +50,7 @@ export default async function ClienteDetailPage({ params }: PageProps) {
       }}
       breadcrumbs={[
         session.user.role === "comercial"
-          ? { label: "Vendas", href: "/comercial" }
+          ? { label: "CRM", href: "/comercial" }
           : { label: "Dashboard", href: "/dashboard" },
         { label: "Clientes", href: "/clientes" },
         { label: cliente.razaoSocial },

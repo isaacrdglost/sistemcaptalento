@@ -139,7 +139,10 @@ export default async function VagasListPage({ searchParams }: PageProps) {
         email: session.user.email ?? "",
         role: session.user.role,
       }}
-      breadcrumbs={[{ label: "Trabalho" }, { label: "Vagas" }]}
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Vagas" },
+      ]}
     >
       <div className="container-app space-y-6">
         <PageHeader

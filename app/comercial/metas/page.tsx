@@ -174,7 +174,10 @@ export default async function MetasPage() {
         email: session.user.email ?? "",
         role: session.user.role,
       }}
-      breadcrumbs={[{ label: "Vendas" }, { label: "Metas" }]}
+      breadcrumbs={[
+        { label: "CRM", href: "/comercial" },
+        { label: "Metas" },
+      ]}
     >
       <div className="container-app space-y-6">
         <PageHeader

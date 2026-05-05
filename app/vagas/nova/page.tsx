@@ -34,6 +34,7 @@ export default async function NovaVagaPage({ searchParams }: PageProps) {
       }}
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
+        { label: "Vagas", href: "/vagas" },
         { label: "Nova vaga" },
       ]}
     >

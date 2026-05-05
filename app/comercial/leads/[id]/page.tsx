@@ -89,7 +89,6 @@ export default async function LeadDetailPage({ params }: PageProps) {
         role: session.user.role,
       }}
       breadcrumbs={[
-        { label: "Vendas" },
         { label: "CRM", href: "/comercial" },
         { label: lead.razaoSocial },
       ]}

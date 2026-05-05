@@ -246,7 +246,7 @@ export default async function ComercialPage({ searchParams }: PageProps) {
         email: session.user.email ?? "",
         role: session.user.role,
       }}
-      breadcrumbs={[{ label: "Vendas" }, { label: "CRM" }]}
+      breadcrumbs={[{ label: "CRM" }]}
     >
       <div className="container-app space-y-6">
         <PageHeader

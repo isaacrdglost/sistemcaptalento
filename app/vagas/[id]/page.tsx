@@ -172,6 +172,7 @@ export default async function VagaDetailPage({ params }: PageProps) {
       }}
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
+        { label: "Vagas", href: "/vagas" },
         { label: vaga.titulo },
       ]}
     >

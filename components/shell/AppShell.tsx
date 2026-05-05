@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { TopProgressBar } from "./TopProgressBar";
 import { CommandMenu } from "../CommandMenu";
 import { GlobalShortcuts } from "../GlobalShortcuts";
 import type { BreadcrumbItem } from "./Breadcrumbs";
@@ -25,6 +27,9 @@ export function AppShell({ children, user, breadcrumbs }: AppShellProps) {
       </div>
       <CommandMenu />
       <GlobalShortcuts />
+      <Suspense fallback={null}>
+        <TopProgressBar />
+      </Suspense>
     </div>
   );
 }

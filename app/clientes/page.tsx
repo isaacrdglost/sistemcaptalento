@@ -56,7 +56,7 @@ export default async function ClientesPage() {
       }}
       breadcrumbs={[
         session.user.role === "comercial"
-          ? { label: "Vendas", href: "/comercial" }
+          ? { label: "CRM", href: "/comercial" }
           : { label: "Dashboard", href: "/dashboard" },
         { label: "Clientes" },
       ]}

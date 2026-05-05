@@ -16,7 +16,6 @@ export default async function NovoLeadPage() {
         role: session.user.role,
       }}
       breadcrumbs={[
-        { label: "Vendas" },
         { label: "CRM", href: "/comercial" },
         { label: "Novo lead" },
       ]}
