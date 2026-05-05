@@ -281,7 +281,7 @@ export function Select({
                   width: pos.width,
                   transformOrigin: pos.direction === "down" ? "top" : "bottom",
                 }}
-                className="z-[60] overflow-hidden rounded-xl border border-line/70 bg-white shadow-xl ring-1 ring-black/5"
+                className="z-[200] overflow-hidden rounded-xl border border-line/70 bg-white shadow-xl ring-1 ring-black/5"
               >
                 <ul
                   ref={listRef}
