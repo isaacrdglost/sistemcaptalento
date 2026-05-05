@@ -160,6 +160,7 @@ export default async function VagaDetailPage({ params }: PageProps) {
   const candidatosVaga: CandidatoOption[] = vaga.candidatos.map((c) => ({
     id: c.id,
     nome: c.nome,
+    status: c.status,
   }));
 
   return (

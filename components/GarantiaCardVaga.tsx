@@ -251,9 +251,12 @@ function ProtocoloAtivoBlock({
     });
   }
 
-  // Candidatos elegíveis pra reposição (excluindo quem saiu)
+  // Candidatos elegíveis pra reposição: tira o que saiu, tira reprovados
+  // (não faz sentido propor alguém já avaliado e descartado).
   const candidatosReposicao = candidatos.filter(
-    (c) => c.id !== protocolo.reposicaoCandidatoId,
+    (c) =>
+      c.id !== protocolo.reposicaoCandidatoId &&
+      c.status !== "reprovado",
   );
 
   return (

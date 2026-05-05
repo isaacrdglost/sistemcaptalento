@@ -34,6 +34,7 @@ type Modelo = "presencial" | "hibrido" | "remoto";
 export interface CandidatoOption {
   id: string;
   nome: string;
+  status?: string;
 }
 
 interface AbrirProtocoloModalProps {
