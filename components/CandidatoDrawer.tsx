@@ -598,7 +598,7 @@ export function CandidatoDrawer({
               ))}
             </div>
 
-            <div className="mt-4 flex-1 overflow-y-auto pr-1">
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
               <AnimatePresence mode="wait">
                 {tab === "detalhes" && (
                   <motion.div
