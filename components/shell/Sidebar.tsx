@@ -16,6 +16,7 @@ import {
   Trophy,
   MessageSquare,
   ShieldCheck,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -56,14 +57,20 @@ const SECTIONS: NavSection[] = [
         exact: true,
       },
       {
+        href: "/vagas",
+        label: "Vagas",
+        icon: Briefcase,
+        excludePrefixes: ["/vagas/nova"],
+      },
+      {
         href: "/vagas/nova",
         label: "Nova vaga",
         icon: PlusCircle,
         exact: true,
       },
       {
-        href: "/contratacoes",
-        label: "Contratações",
+        href: "/reposicoes",
+        label: "Reposições",
         icon: ShieldCheck,
       },
     ],

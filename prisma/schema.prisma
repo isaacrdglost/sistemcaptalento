@@ -66,6 +66,8 @@ enum TipoAtividade {
   garantia_finalizada_ok
   garantia_acionada
   garantia_triada
+  protocolo_ativado
+  protocolo_encerrado
   reposicao_aberta
   reposicao_concluida
   checkin_pos_contratacao
@@ -141,14 +143,6 @@ enum CanalTemplate {
   email
 }
 
-enum StatusContratacao {
-  em_garantia
-  garantia_ok
-  garantia_acionada
-  reposto
-  encerrado
-}
-
 enum MotivoSaida {
   pedido_cliente
   pedido_candidato
@@ -175,14 +169,14 @@ model User {
   /// Null quando o usuário ainda não configurou.
   calendarIcsUrlEnc String?
 
-  vagas               Vaga[]          @relation("RecrutadorVagas")
-  atividades          Atividade[]
-  analisesFicha       AnaliseFicha[]
-  leadsResponsavel    Lead[]          @relation("LeadResponsavel")
-  atividadesLead      AtividadeLead[]
-  contratacoes        Contratacao[]   @relation("ContratacaoRecrutadora")
-  triagensContratacao Contratacao[]   @relation("ContratacaoTriadoPor")
-  checkIns            CheckIn[]       @relation("CheckInAutor")
+  vagas             Vaga[]               @relation("RecrutadorVagas")
+  atividades        Atividade[]
+  analisesFicha     AnaliseFicha[]
+  leadsResponsavel  Lead[]               @relation("LeadResponsavel")
+  atividadesLead    AtividadeLead[]
+  protocolosFeitos  ProtocoloReposicao[] @relation("ProtocoloRecrutadora")
+  protocolosAbertos ProtocoloReposicao[] @relation("ProtocoloAbertoPor")
+  protocolosTriados ProtocoloReposicao[] @relation("ProtocoloTriadoPor")
 }
 
 model Cliente {
@@ -198,9 +192,9 @@ model Cliente {
   ativo              Boolean  @default(true)
   createdAt          DateTime @default(now())
 
-  vagas        Vaga[]
-  leads        Lead[]
-  contratacoes Contratacao[]
+  vagas      Vaga[]
+  leads      Lead[]
+  protocolos ProtocoloReposicao[]
 
   @@index([ativo])
 }
@@ -241,12 +235,12 @@ model Vaga {
   salarioMax  Decimal?     @db.Decimal(10, 2)
   area        String?
 
-  recrutador        User          @relation("RecrutadorVagas", fields: [recrutadorId], references: [id])
-  clienteRef        Cliente?      @relation(fields: [clienteId], references: [id])
+  recrutador        User                 @relation("RecrutadorVagas", fields: [recrutadorId], references: [id])
+  clienteRef        Cliente?             @relation(fields: [clienteId], references: [id])
   candidatos        Candidato[]
   atividades        Atividade[]
-  contratacoes      Contratacao[] @relation("VagaContratacao")
-  reposicoesParaMim Contratacao[] @relation("VagaReposicao")
+  protocolos        ProtocoloReposicao[] @relation("VagaProtocolos")
+  reposicoesParaMim ProtocoloReposicao[] @relation("VagaReposicaoProtocolos")
 
   @@index([recrutadorId])
   @@index([clienteId])
@@ -278,10 +272,11 @@ model Candidato {
   /// importações sucessivas (ex.: UID de um VEVENT do Google Calendar).
   fonteExternoId String?
 
-  vaga        Vaga           @relation(fields: [vagaId], references: [id], onDelete: Cascade)
-  talento     Talento?       @relation(fields: [talentoId], references: [id], onDelete: SetNull)
-  analises    AnaliseFicha[]
-  contratacao Contratacao?
+  vaga                  Vaga                 @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  talento               Talento?             @relation(fields: [talentoId], references: [id], onDelete: SetNull)
+  analises              AnaliseFicha[]
+  protocolosComoSaiu    ProtocoloReposicao[] @relation("ProtocoloProfissionalSaiu")
+  protocolosComoReposto ProtocoloReposicao[] @relation("ProtocoloReposicaoCandidato")
 
   @@index([vagaId])
   @@index([talentoId])
@@ -460,85 +455,89 @@ model AtividadeLead {
   @@index([agendadoPara, concluidoEm])
 }
 
-model Contratacao {
+enum ProtocoloStatus {
+  /// Recrutadora abriu, ainda preenchendo / triando.
+  aberto
+  /// Triagem interna decidiu DENTRO. Aguardando o cliente confirmar
+  /// formalmente o pedido de reposição.
+  aguardando_cliente
+  /// Cliente confirmou — garantia ATIVA, time trabalhando na reposição
+  /// (via shortlist antiga ou vaga nova).
+  ativada
+  /// Substituto contratado.
+  reposto
+  /// Encerrado sem reposição (FORA da garantia, cliente desistiu, etc).
+  encerrado
+}
+
+/// Quando o cliente entra em contato pedindo reposição, abre-se um
+/// ProtocoloReposicao na vaga original. O protocolo formaliza o pedido,
+/// registra exclusões/provas, recebe a confirmação do cliente e ativa
+/// a garantia. Não há countdown automático — a garantia só "rola" depois
+/// de ativada formalmente.
+model ProtocoloReposicao {
   id            String  @id @default(cuid())
-  candidatoId   String  @unique
   vagaId        String
   clienteId     String
   recrutadoraId String?
+  abertoPorId   String
 
-  dataAdmissao         DateTime
-  dataFimGarantia      DateTime
-  /// URL @vercel/blob com print/PDF do cliente confirmando a admissão.
-  /// Não-obrigatório, mas é a prova ouro caso a data seja contestada.
-  admissaoEvidenciaUrl String?
+  /// Profissional que saiu — se foi candidato registrado, vincula; senão
+  /// fica como nome livre pra histórico.
+  profissionalSaiuCandidatoId String?
+  profissionalSaiuNome        String
 
-  /// URLs de provas/anexos do protocolo de reposição (emails, prints,
-  /// documentos do cliente). Múltiplos arquivos.
-  evidenciasUrls       String[]   @default([])
+  // Snapshot dos termos da contratação que terminou
+  cargoSnapshot        String
+  salarioSnapshot      String?
+  modeloSnapshot       Modelo?
+  escopoSnapshot       String?
+  dataAdmissaoOriginal DateTime?
 
-  // Snapshot dos termos no fechamento — base de comparação se a garantia
-  // for acionada e a defesa do cliente alegar "mudança de escopo".
-  cargoSnapshot     String
-  salarioSnapshot   String
-  modeloSnapshot    Modelo
-  escopoSnapshot    String?
-  observacoesTermos String?
+  // Saída
+  dataSaida          DateTime
+  motivoSaida        MotivoSaida
+  motivoSaidaDetalhe String?
+  exclusoesAvaliadas Json?
+  evidenciasUrls     String[]    @default([])
 
-  status StatusContratacao @default(em_garantia)
+  // Triagem interna (decisão preliminar antes de ir pro cliente)
+  dentroGarantia       Boolean?
+  triagemJustificativa String?
+  triadoPorId          String?
+  triadoEm             DateTime?
 
-  // Saída — preenchidos quando a garantia é acionada
-  dataSaida                 DateTime?
-  motivoSaida               MotivoSaida?
-  motivoSaidaDetalhe        String?
-  /// Checklist das exclusões da proposta (mudanca_escopo / reestruturacao /
-  /// falha_onboarding) — guardamos o snapshot do julgamento como JSON
-  /// pra auditoria depois.
-  exclusoesAvaliadas        Json?
-  saidaDentroGarantia       Boolean?
-  saidaDentroGarantiaJustif String?
-  triadoPorId               String?
-  triadoEm                  DateTime?
+  // Confirmação do cliente — momento em que a garantia é "ativada"
+  clienteConfirmou               Boolean   @default(false)
+  clienteConfirmouEm             DateTime?
+  /// "email" | "whatsapp" | "reuniao" | "ligacao" | "outro"
+  clienteConfirmacaoVia          String?
+  clienteConfirmacaoEvidenciaUrl String?
 
   // Reposição
+  /// "shortlist" (reaproveitando shortlist da vaga original) ou
+  /// "vaga_nova" (vaga nova aberta com prazo de 30 dias úteis)
+  caminhoReposicao     String?
   reposicaoVagaId      String?
   reposicaoCandidatoId String?
   reposicaoConcluidaEm DateTime?
 
+  status ProtocoloStatus @default(aberto)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  candidato     Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
-  vaga          Vaga      @relation("VagaContratacao", fields: [vagaId], references: [id])
-  vagaReposicao Vaga?     @relation("VagaReposicao", fields: [reposicaoVagaId], references: [id])
-  cliente       Cliente   @relation(fields: [clienteId], references: [id])
-  recrutadora   User?     @relation("ContratacaoRecrutadora", fields: [recrutadoraId], references: [id])
-  triadoPor     User?     @relation("ContratacaoTriadoPor", fields: [triadoPorId], references: [id])
+  vaga             Vaga       @relation("VagaProtocolos", fields: [vagaId], references: [id])
+  vagaReposicao    Vaga?      @relation("VagaReposicaoProtocolos", fields: [reposicaoVagaId], references: [id])
+  cliente          Cliente    @relation(fields: [clienteId], references: [id])
+  recrutadora      User?      @relation("ProtocoloRecrutadora", fields: [recrutadoraId], references: [id])
+  abertoPor        User       @relation("ProtocoloAbertoPor", fields: [abertoPorId], references: [id])
+  triadoPor        User?      @relation("ProtocoloTriadoPor", fields: [triadoPorId], references: [id])
+  profissionalSaiu Candidato? @relation("ProtocoloProfissionalSaiu", fields: [profissionalSaiuCandidatoId], references: [id])
+  reposicaoCandidato Candidato? @relation("ProtocoloReposicaoCandidato", fields: [reposicaoCandidatoId], references: [id])
 
-  checkIns CheckIn[]
-
+  @@index([vagaId])
   @@index([clienteId, status])
-  @@index([dataFimGarantia, status])
   @@index([recrutadoraId, status])
-}
-
-model CheckIn {
-  id            String    @id @default(cuid())
-  contratacaoId String
-  /// Dias após a admissão (7, 15, 25 nos check-ins automáticos)
-  diasApos      Int
-  agendadoPara  DateTime
-  realizadoEm   DateTime?
-  /// "ok" | "atencao" | "alerta"
-  resultado     String?
-  observacao    String?
-  autorId       String?
-
-  createdAt DateTime @default(now())
-
-  contratacao Contratacao @relation(fields: [contratacaoId], references: [id], onDelete: Cascade)
-  autor       User?       @relation("CheckInAutor", fields: [autorId], references: [id])
-
-  @@index([contratacaoId])
-  @@index([agendadoPara, realizadoEm])
+  @@index([status])
 }

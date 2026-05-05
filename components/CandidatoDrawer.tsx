@@ -23,7 +23,6 @@ import type {
   Candidato,
   Modelo,
   ResultadoAnalise,
-  StatusContratacao,
   StatusCandidato,
 } from "@prisma/client";
 import {
@@ -34,27 +33,13 @@ import { formatDateBR, formatRelative } from "@/lib/business-days";
 import { formatCPF } from "@/lib/format";
 import { useConfirm } from "./ConfirmDialog";
 import { Select } from "@/components/ui/Select";
-import {
-  diasRestantesGarantia,
-  resumoStatusGarantia,
-  toneGarantia,
-} from "@/lib/garantia";
-import { ShieldCheck } from "lucide-react";
 
 export type AnaliseFichaComAutor = AnaliseFicha & {
   autor: { nome: string };
 };
 
-export interface ContratacaoResumo {
-  id: string;
-  status: StatusContratacao;
-  dataAdmissao: Date;
-  dataFimGarantia: Date;
-}
-
 export type CandidatoComAnalises = Candidato & {
   analises: AnaliseFichaComAutor[];
-  contratacao?: ContratacaoResumo | null;
 };
 
 export interface VagaResumoParaDrawer {
@@ -69,8 +54,6 @@ interface CandidatoDrawerProps {
   canEdit: boolean;
   open: boolean;
   onClose: () => void;
-  /** Dados da vaga pra preencher o modal de contratação. Quando ausente,
-   * o botão "Marcar como contratado" não aparece. */
   vagaResumo?: VagaResumoParaDrawer;
 }
 
@@ -592,8 +575,6 @@ export function CandidatoDrawer({
                 <X size={18} />
               </button>
             </header>
-
-            <ContratacaoSummaryCard candidato={candidato} />
 
             <div className="mt-6 flex gap-1 rounded-lg bg-slate-100 p-1">
               {tabsDisponiveis.map((t) => (
@@ -1177,46 +1158,3 @@ export function CandidatoDrawer({
   );
 }
 
-interface ContratacaoSummaryCardProps {
-  candidato: CandidatoComAnalises;
-}
-
-function ContratacaoSummaryCard({
-  candidato,
-}: ContratacaoSummaryCardProps) {
-  const c = candidato.contratacao;
-
-  if (!c) return null;
-
-  // Mostra apenas o resumo da contratação. O fluxo de "registrar contratação"
-  // e "abrir protocolo" mora no GarantiaCardVaga (no detalhe da vaga) — evita
-  // botões duplicados e mantém o drawer focado em ler o candidato.
-  const tone = toneGarantia(c.status, c.dataFimGarantia);
-  const dias = diasRestantesGarantia(c.dataFimGarantia);
-  const toneClasses: Record<typeof tone, string> = {
-    lima: "border-lima-200 bg-lima-50 text-lima-700",
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    red: "border-red-200 bg-red-50 text-red-700",
-    slate: "border-line bg-slate-50 text-slate-600",
-  };
-  return (
-    <div
-      className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 ${toneClasses[tone]}`}
-    >
-      <ShieldCheck size={18} className="mt-0.5 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
-          Contratação
-        </div>
-        <div className="text-sm font-semibold">
-          {resumoStatusGarantia(c)}
-        </div>
-        <div className="mt-0.5 text-xs opacity-80">
-          Admissão {formatDateBR(c.dataAdmissao)} · Garantia até{" "}
-          {formatDateBR(c.dataFimGarantia)}
-          {c.status === "em_garantia" && dias > 0 ? ` (${dias}d)` : ""}
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -17,11 +17,7 @@ import { AdminMetrics } from "@/components/AdminMetrics";
 import { RecrutadorFilter } from "@/components/RecrutadorFilter";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  GarantiasWidget,
-  type GarantiaWidgetItem,
-} from "@/components/GarantiasWidget";
-import { aplicarVencimentosGarantia } from "@/lib/garantia";
+import { ProtocolosAtivosWidget } from "@/components/ProtocolosAtivosWidget";
 
 interface DashboardPageProps {
   searchParams?: { rec?: string };
@@ -58,11 +54,16 @@ export default async function DashboardPage({
 
   const recFilter = isAdmin ? searchParams?.rec : undefined;
 
-  const where = isAdmin
-    ? recFilter
-      ? { recrutadorId: recFilter }
-      : {}
-    : { recrutadorId: session.user.id };
+  // Dashboard mostra apenas vagas em andamento (encerrada=false). Histórico
+  // completo fica em /vagas.
+  const where = {
+    encerrada: false,
+    ...(isAdmin
+      ? recFilter
+        ? { recrutadorId: recFilter }
+        : {}
+      : { recrutadorId: session.user.id }),
+  };
 
   const vagas = (await prisma.vaga.findMany({
     where,
@@ -70,7 +71,7 @@ export default async function DashboardPage({
       recrutador: { select: { id: true, nome: true } },
       _count: { select: { candidatos: true } },
     },
-    orderBy: [{ encerrada: "asc" }, { createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }],
   })) as VagaWithRecrutador[];
 
   // Para métricas admin e contagens por recrutador, usamos todas as vagas (sem filtro).
@@ -150,38 +151,37 @@ export default async function DashboardPage({
     ? computeAdminMetrics(todasVagas, now)
     : null;
 
-  await aplicarVencimentosGarantia();
-  const contratacoesVisibilidade = isAdmin
+  const protocolosVisibilidade = isAdmin
     ? {}
     : { recrutadoraId: session.user.id };
-  const [garantiasVigentesRaw, totalGarantiasVigentes, totalGarantiasAcionadas] =
+  const [protocolosAtivosRaw, totalProtocolosAtivos, totalAguardando] =
     await Promise.all([
-      prisma.contratacao.findMany({
-        where: { ...contratacoesVisibilidade, status: "em_garantia" },
-        orderBy: { dataFimGarantia: "asc" },
+      prisma.protocoloReposicao.findMany({
+        where: {
+          ...protocolosVisibilidade,
+          status: { in: ["aberto", "aguardando_cliente", "ativada"] },
+        },
+        orderBy: { createdAt: "desc" },
         take: 5,
         select: {
           id: true,
-          dataAdmissao: true,
-          dataFimGarantia: true,
-          candidato: { select: { nome: true } },
+          status: true,
+          profissionalSaiuNome: true,
+          dataSaida: true,
+          vaga: { select: { id: true, titulo: true } },
           cliente: { select: { razaoSocial: true } },
         },
       }),
-      prisma.contratacao.count({
-        where: { ...contratacoesVisibilidade, status: "em_garantia" },
+      prisma.protocoloReposicao.count({
+        where: {
+          ...protocolosVisibilidade,
+          status: { in: ["aberto", "aguardando_cliente", "ativada"] },
+        },
       }),
-      prisma.contratacao.count({
-        where: { ...contratacoesVisibilidade, status: "garantia_acionada" },
+      prisma.protocoloReposicao.count({
+        where: { ...protocolosVisibilidade, status: "aguardando_cliente" },
       }),
     ]);
-  const garantiasVigentes: GarantiaWidgetItem[] = garantiasVigentesRaw.map((g) => ({
-    id: g.id,
-    candidatoNome: g.candidato.nome,
-    clienteRazaoSocial: g.cliente.razaoSocial,
-    dataAdmissao: g.dataAdmissao,
-    dataFimGarantia: g.dataFimGarantia,
-  }));
 
   const nome = (session.user.name ?? "").split(" ")[0] || "colega";
   const greeting = saudacao(now.getHours());
@@ -346,12 +346,20 @@ export default async function DashboardPage({
           />
         ) : null}
 
-        {/* Garantias pós-contratação */}
-        {totalGarantiasVigentes > 0 || totalGarantiasAcionadas > 0 ? (
-          <GarantiasWidget
-            vigentes={garantiasVigentes}
-            totalVigentes={totalGarantiasVigentes}
-            totalAcionadas={totalGarantiasAcionadas}
+        {/* Protocolos de reposição em curso */}
+        {totalProtocolosAtivos > 0 ? (
+          <ProtocolosAtivosWidget
+            protocolos={protocolosAtivosRaw.map((p) => ({
+              id: p.id,
+              status: p.status,
+              profissionalNome: p.profissionalSaiuNome,
+              vagaId: p.vaga.id,
+              vagaTitulo: p.vaga.titulo,
+              clienteRazaoSocial: p.cliente.razaoSocial,
+              dataSaida: p.dataSaida,
+            }))}
+            total={totalProtocolosAtivos}
+            aguardando={totalAguardando}
           />
         ) : null}
 

@@ -18,13 +18,12 @@ import { VagaTimeline } from "@/components/VagaTimeline";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   GarantiaCardVaga,
-  type GarantiaCardCandidatoOption,
-  type GarantiaCardContratacao,
+  type GarantiaCardProtocolo,
 } from "@/components/GarantiaCardVaga";
+import type { CandidatoOption } from "@/components/AbrirProtocoloModal";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { computeVagaDerived, fluxoLabel, prazoCor } from "@/lib/flows";
-import { aplicarVencimentosGarantia } from "@/lib/garantia";
 import {
   formatDateBR,
   formatDiasRestantes,
@@ -62,17 +61,26 @@ export default async function VagaDetailPage({ params }: PageProps) {
             include: { autor: { select: { nome: true } } },
             orderBy: { createdAt: "desc" },
           },
-          contratacao: {
-            select: {
-              id: true,
-              status: true,
-              dataAdmissao: true,
-              dataFimGarantia: true,
-            },
-          },
         },
       },
       recrutador: { select: { id: true, nome: true } },
+      protocolos: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          profissionalSaiuNome: true,
+          dataSaida: true,
+          dataAdmissaoOriginal: true,
+          dentroGarantia: true,
+          clienteConfirmou: true,
+          clienteConfirmouEm: true,
+          clienteConfirmacaoVia: true,
+          reposicaoVagaId: true,
+          reposicaoCandidatoId: true,
+          reposicaoConcluidaEm: true,
+        },
+      },
     },
   });
 
@@ -133,63 +141,26 @@ export default async function VagaDetailPage({ params }: PageProps) {
   const totalAlertas = derived.alertas.length;
   const tituloCurto = vaga.titulo.length <= 60;
 
-  // Lazy update: garantias vencidas viram garantia_ok no load
-  await aplicarVencimentosGarantia();
+  // Dados pro GarantiaCardVaga (só renderizado quando vaga.temGarantia=true)
+  const protocolos: GarantiaCardProtocolo[] = vaga.protocolos.map((p) => ({
+    id: p.id,
+    status: p.status,
+    profissionalSaiuNome: p.profissionalSaiuNome,
+    dataSaida: p.dataSaida,
+    dataAdmissaoOriginal: p.dataAdmissaoOriginal,
+    dentroGarantia: p.dentroGarantia,
+    clienteConfirmou: p.clienteConfirmou,
+    clienteConfirmouEm: p.clienteConfirmouEm,
+    clienteConfirmacaoVia: p.clienteConfirmacaoVia,
+    reposicaoVagaId: p.reposicaoVagaId,
+    reposicaoCandidatoId: p.reposicaoCandidatoId,
+    reposicaoConcluidaEm: p.reposicaoConcluidaEm,
+  }));
 
-  // Dados pra GarantiaCardVaga (só renderizado quando vaga.temGarantia=true)
-  const contratacaoExistente = vaga.candidatos.find((c) => c.contratacao);
-  const garantiaContratacao: GarantiaCardContratacao | null =
-    contratacaoExistente?.contratacao
-      ? {
-          id: contratacaoExistente.contratacao.id,
-          status: contratacaoExistente.contratacao.status,
-          dataAdmissao: contratacaoExistente.contratacao.dataAdmissao,
-          dataFimGarantia: contratacaoExistente.contratacao.dataFimGarantia,
-          dataSaida: null,
-          saidaDentroGarantia: null,
-          reposicaoVagaId: null,
-          candidatoId: contratacaoExistente.id,
-          candidatoNome: contratacaoExistente.nome,
-        }
-      : null;
-
-  // Se houver contratação, busca dados extras necessários pra reposição
-  let garantiaContratacaoCompleta: GarantiaCardContratacao | null = garantiaContratacao;
-  if (garantiaContratacao) {
-    const ct = await prisma.contratacao.findUnique({
-      where: { id: garantiaContratacao.id },
-      select: {
-        dataSaida: true,
-        saidaDentroGarantia: true,
-        reposicaoVagaId: true,
-      },
-    });
-    if (ct) {
-      garantiaContratacaoCompleta = {
-        ...garantiaContratacao,
-        dataSaida: ct.dataSaida,
-        saidaDentroGarantia: ct.saidaDentroGarantia,
-        reposicaoVagaId: ct.reposicaoVagaId,
-      };
-    }
-  }
-
-  const candidatosContrataveis: GarantiaCardCandidatoOption[] = vaga.candidatos
-    .filter(
-      (c) =>
-        !c.contratacao &&
-        (c.status === "shortlist" || c.status === "aprovado"),
-    )
-    .map((c) => ({ id: c.id, nome: c.nome, status: c.status }));
-
-  const candidatosReposicaoMesmaVaga: GarantiaCardCandidatoOption[] = vaga.candidatos
-    .filter(
-      (c) =>
-        !c.contratacao &&
-        c.id !== garantiaContratacao?.candidatoId &&
-        c.status !== "reprovado",
-    )
-    .map((c) => ({ id: c.id, nome: c.nome, status: c.status }));
+  const candidatosVaga: CandidatoOption[] = vaga.candidatos.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+  }));
 
   return (
     <AppShell
@@ -382,10 +353,9 @@ export default async function VagaDetailPage({ params }: PageProps) {
                     vagaSalarioMax={
                       vaga.salarioMax ? Number(vaga.salarioMax) : null
                     }
-                    dataShortlistEntregue={vaga.dataShortlistEntregue}
-                    candidatosContrataveis={candidatosContrataveis}
-                    candidatosReposicaoMesmaVaga={candidatosReposicaoMesmaVaga}
-                    contratacao={garantiaContratacaoCompleta}
+                    vagaEncerrada={vaga.encerrada}
+                    candidatos={candidatosVaga}
+                    protocolos={protocolos}
                     canEdit={canEdit}
                   />
                 </div>

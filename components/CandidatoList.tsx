@@ -21,13 +21,8 @@ import {
 import {
   CandidatoDrawer,
   type CandidatoComAnalises,
-  type ContratacaoResumo,
   type VagaResumoParaDrawer,
 } from "./CandidatoDrawer";
-import {
-  diasRestantesGarantia,
-  toneGarantia,
-} from "@/lib/garantia";
 import { useConfirm } from "./ConfirmDialog";
 import { ImportarAgendaDrawer } from "./ImportarAgendaDrawer";
 import { Select } from "@/components/ui/Select";
@@ -319,10 +314,6 @@ export function CandidatoList({
                   <ScoreStars score={c.score} />
                 </div>
 
-                {c.contratacao ? (
-                  <ContratacaoChip contratacao={c.contratacao} />
-                ) : null}
-
                 <StatusPill
                   status={c.status}
                   disabled={isPending || !canEdit}
@@ -406,38 +397,3 @@ export function CandidatoList({
   );
 }
 
-function ContratacaoChip({
-  contratacao,
-}: {
-  contratacao: ContratacaoResumo;
-}) {
-  const tone = toneGarantia(contratacao.status, contratacao.dataFimGarantia);
-  const dias = diasRestantesGarantia(contratacao.dataFimGarantia);
-  const toneClasses: Record<typeof tone, string> = {
-    lima: "bg-lima-100 text-lima-700 ring-lima-200",
-    amber: "bg-amber-100 text-amber-700 ring-amber-200",
-    red: "bg-red-100 text-red-700 ring-red-200",
-    slate: "bg-slate-100 text-slate-600 ring-slate-200",
-  };
-  let label: string;
-  if (contratacao.status === "em_garantia") {
-    label = dias > 0 ? `Garantia · ${dias}d` : "Garantia vencendo";
-  } else if (contratacao.status === "garantia_ok") {
-    label = "Garantia OK";
-  } else if (contratacao.status === "garantia_acionada") {
-    label = "Garantia acionada";
-  } else if (contratacao.status === "reposto") {
-    label = "Reposto";
-  } else {
-    label = "Encerrada";
-  }
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${toneClasses[tone]}`}
-      title={`Admissão ${contratacao.dataAdmissao.toLocaleDateString("pt-BR")} · garantia até ${contratacao.dataFimGarantia.toLocaleDateString("pt-BR")}`}
-    >
-      <ShieldCheck size={11} />
-      {label}
-    </span>
-  );
-}

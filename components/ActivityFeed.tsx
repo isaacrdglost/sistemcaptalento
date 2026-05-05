@@ -189,6 +189,18 @@ const ICON_BY_TIPO: Record<TipoAtividade, IconSpec> = {
     bg: "bg-royal-50",
     ring: "ring-royal-200",
   },
+  protocolo_ativado: {
+    Icon: ShieldCheck,
+    color: "text-lima-700",
+    bg: "bg-lima-50",
+    ring: "ring-lima-200",
+  },
+  protocolo_encerrado: {
+    Icon: Lock,
+    color: "text-red-600",
+    bg: "bg-red-50",
+    ring: "ring-red-200",
+  },
 };
 
 function primeiroNome(nome: string | null | undefined): string {
