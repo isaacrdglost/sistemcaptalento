@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  AlertCircle,
   ArrowLeft,
   Briefcase,
   Building2,
   ExternalLink,
+  Mail,
   ShieldCheck,
   User,
 } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
+import { ContratacaoActions } from "@/components/ContratacaoActions";
+import { CheckInsCard, type CheckInItem } from "@/components/CheckInsCard";
+import { TermoButton } from "@/components/TermoButton";
 import { prisma } from "@/lib/prisma";
 import { requireOperacional } from "@/lib/session";
 import {
@@ -32,6 +35,18 @@ const MODELO_LABEL: Record<string, string> = {
   remoto: "Remoto",
 };
 
+const MOTIVO_LABEL: Record<string, string> = {
+  pedido_cliente: "Pedido do cliente",
+  pedido_candidato: "Pedido do candidato",
+  acordo_mutuo: "Acordo mútuo",
+  inadequacao_tecnica: "Inadequação técnica",
+  inadequacao_comportamental: "Inadequação comportamental",
+  reestruturacao_cliente: "Reestruturação do cliente",
+  mudanca_escopo: "Mudança de escopo",
+  falha_onboarding_cliente: "Falha de onboarding do cliente",
+  outro: "Outro",
+};
+
 export default async function ContratacaoDetailPage({ params }: PageProps) {
   const session = await requireOperacional();
   const isAdmin = session.user.role === "admin";
@@ -50,13 +65,45 @@ export default async function ContratacaoDetailPage({ params }: PageProps) {
         },
       },
       vaga: { select: { id: true, titulo: true } },
-      cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+      vagaReposicao: { select: { id: true, titulo: true } },
+      cliente: {
+        select: {
+          id: true,
+          razaoSocial: true,
+          nomeFantasia: true,
+          emailPrincipal: true,
+        },
+      },
       recrutadora: { select: { id: true, nome: true } },
+      triadoPor: { select: { id: true, nome: true } },
+      checkIns: {
+        orderBy: { diasApos: "asc" },
+        include: { autor: { select: { nome: true } } },
+      },
     },
   });
 
   if (!c) notFound();
   if (!isAdmin && c.recrutadoraId !== session.user.id) notFound();
+
+  // Candidatos na vaga de reposição (pra dropdown de "concluir reposição")
+  const candidatosNaReposicao = c.reposicaoVagaId
+    ? await prisma.candidato.findMany({
+        where: { vagaId: c.reposicaoVagaId },
+        select: { id: true, nome: true, status: true },
+        orderBy: { nome: "asc" },
+      })
+    : [];
+
+  const checkIns: CheckInItem[] = c.checkIns.map((ci) => ({
+    id: ci.id,
+    diasApos: ci.diasApos,
+    agendadoPara: ci.agendadoPara,
+    realizadoEm: ci.realizadoEm,
+    resultado: ci.resultado,
+    observacao: ci.observacao,
+    autorNome: ci.autor?.nome ?? null,
+  }));
 
   const tone = toneGarantia(c.status, c.dataFimGarantia);
   const dias = diasRestantesGarantia(c.dataFimGarantia);
@@ -124,24 +171,15 @@ export default async function ContratacaoDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {c.status === "em_garantia" || c.status === "garantia_ok" ? (
-          <div className="card flex items-start gap-3 border-amber-200 bg-amber-50/40 p-4">
-            <AlertCircle
-              size={18}
-              className="mt-0.5 shrink-0 text-amber-600"
-            />
-            <div className="text-sm text-amber-900">
-              <div className="font-semibold">
-                Acionamento e reposição vêm na próxima atualização.
-              </div>
-              <div className="mt-0.5 text-xs opacity-90">
-                Por enquanto, registre o acionamento por fora se o cliente
-                pedir reposição. A próxima fase do CRM trará o fluxo
-                completo aqui.
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <ContratacaoActions
+          contratacaoId={c.id}
+          status={c.status}
+          candidatoNome={c.candidato.nome}
+          dataAdmissao={c.dataAdmissao}
+          saidaDentroGarantia={c.saidaDentroGarantia}
+          reposicaoVagaId={c.reposicaoVagaId}
+          candidatosNaReposicao={candidatosNaReposicao}
+        />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
@@ -192,24 +230,127 @@ export default async function ContratacaoDetailPage({ params }: PageProps) {
                   </div>
                 ) : null}
               </dl>
-              {c.admissaoEvidenciaUrl ? (
-                <div className="mt-4 border-t border-line/70 pt-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line/70 pt-3 text-xs">
+                {c.admissaoEvidenciaUrl ? (
                   <a
                     href={c.admissaoEvidenciaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-royal hover:underline"
+                    className="inline-flex items-center gap-1 font-semibold text-royal hover:underline"
                   >
                     <ExternalLink size={12} />
                     Ver evidência da admissão
                   </a>
-                </div>
-              ) : (
-                <div className="mt-4 border-t border-line/70 pt-3 text-xs text-slate-500">
-                  Nenhuma evidência da admissão anexada.
-                </div>
-              )}
+                ) : (
+                  <span className="text-slate-500">
+                    Nenhuma evidência da admissão anexada.
+                  </span>
+                )}
+                <TermoButton
+                  contratacaoId={c.id}
+                  clienteEmail={c.cliente.emailPrincipal}
+                />
+              </div>
             </section>
+
+            {(c.status === "garantia_acionada" ||
+              c.status === "reposto" ||
+              c.status === "encerrado") &&
+            c.dataSaida ? (
+              <section className="card border-amber-200 bg-amber-50/30 p-5">
+                <h2 className="section-label mb-3 text-amber-800">
+                  Saída e triagem
+                </h2>
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Data da saída
+                    </dt>
+                    <dd className="text-ink">{formatDateBR(c.dataSaida)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Motivo declarado
+                    </dt>
+                    <dd className="text-ink">
+                      {MOTIVO_LABEL[c.motivoSaida ?? "outro"]}
+                    </dd>
+                  </div>
+                  {c.motivoSaidaDetalhe ? (
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                        Detalhe
+                      </dt>
+                      <dd className="whitespace-pre-wrap text-ink">
+                        {c.motivoSaidaDetalhe}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {c.saidaDentroGarantia !== null ? (
+                    <div className="sm:col-span-2 border-t border-amber-200 pt-3">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                        Triagem
+                      </dt>
+                      <dd className="text-ink">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                            c.saidaDentroGarantia
+                              ? "bg-lima-100 text-lima-700 ring-lima-200"
+                              : "bg-red-100 text-red-700 ring-red-200"
+                          }`}
+                        >
+                          {c.saidaDentroGarantia
+                            ? "Dentro da garantia"
+                            : "Fora da garantia"}
+                        </span>
+                        {c.triadoPor ? (
+                          <span className="ml-2 text-xs text-slate-500">
+                            por {c.triadoPor.nome}
+                            {c.triadoEm
+                              ? ` em ${formatDateBR(c.triadoEm)}`
+                              : ""}
+                          </span>
+                        ) : null}
+                        {c.saidaDentroGarantiaJustif ? (
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-slate-700">
+                            {c.saidaDentroGarantiaJustif}
+                          </p>
+                        ) : null}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {c.vagaReposicao ? (
+                  <div className="mt-4 rounded-lg border border-royal-200 bg-royal-50/40 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-royal-700">
+                      Reposição
+                    </p>
+                    <Link
+                      href={`/vagas/${c.vagaReposicao.id}`}
+                      className="text-sm font-semibold text-royal hover:underline"
+                    >
+                      {c.vagaReposicao.titulo}
+                    </Link>
+                    {c.reposicaoConcluidaEm ? (
+                      <p className="mt-1 text-xs text-slate-500">
+                        concluída em {formatDateBR(c.reposicaoConcluidaEm)}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500">
+                        em andamento
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            <CheckInsCard
+              checkIns={checkIns}
+              podeRegistrar={
+                c.status === "em_garantia" || c.status === "garantia_acionada"
+              }
+            />
           </div>
 
           <aside className="space-y-6">
