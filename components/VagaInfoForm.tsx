@@ -12,6 +12,7 @@ import {
 } from "@/app/vagas/[id]/actions";
 import { useConfirm } from "./ConfirmDialog";
 import { Select, type SelectOption } from "@/components/ui/Select";
+import { GarantiaToggle } from "./GarantiaToggle";
 
 const FLUXO_OPTIONS: SelectOption[] = [
   { value: "padrao", label: "Padrão (30 dias úteis)" },
@@ -94,6 +95,9 @@ export function VagaInfoForm({
   );
   const [dataPrazo, setDataPrazo] = useState(toDateInputValue(vaga.dataPrazo));
   const [fluxo, setFluxo] = useState<Fluxo>(vaga.fluxo);
+  const [temGarantia, setTemGarantia] = useState<boolean>(
+    vaga.temGarantia ?? false,
+  );
   const [recrutadorId, setRecrutadorId] = useState(vaga.recrutadorId);
 
   // Detalhes da posição (extras)
@@ -150,6 +154,7 @@ export function VagaInfoForm({
       dataBriefing: briefing,
       dataPrazo: parseDateInput(dataPrazo),
       fluxo,
+      temGarantia,
       senioridade: (senioridade || null) as Senioridade | null,
       modelo: (modelo || null) as Modelo | null,
       localizacao: localizacao.trim() ? localizacao.trim() : null,
@@ -343,6 +348,12 @@ export function VagaInfoForm({
               options={FLUXO_OPTIONS}
             />
           </div>
+
+          <GarantiaToggle
+            value={temGarantia}
+            onChange={setTemGarantia}
+            disabled={isPending}
+          />
 
           {/* Detalhes da posição — colapsável */}
           <details

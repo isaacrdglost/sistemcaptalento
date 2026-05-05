@@ -34,7 +34,6 @@ import { formatDateBR, formatRelative } from "@/lib/business-days";
 import { formatCPF } from "@/lib/format";
 import { useConfirm } from "./ConfirmDialog";
 import { Select } from "@/components/ui/Select";
-import { ContratacaoModal } from "./ContratacaoModal";
 import {
   diasRestantesGarantia,
   resumoStatusGarantia,
@@ -259,7 +258,6 @@ export function CandidatoDrawer({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [tab, setTab] = useState<Tab>("detalhes");
-  const [contratacaoModalOpen, setContratacaoModalOpen] = useState(false);
 
   const [nome, setNome] = useState(candidato.nome);
   const [email, setEmail] = useState(candidato.email ?? "");
@@ -595,12 +593,7 @@ export function CandidatoDrawer({
               </button>
             </header>
 
-            <ContratacaoSummaryCard
-              candidato={candidato}
-              canEdit={canEdit}
-              vagaResumo={vagaResumo}
-              onAbrirModal={() => setContratacaoModalOpen(true)}
-            />
+            <ContratacaoSummaryCard candidato={candidato} />
 
             <div className="mt-6 flex gap-1 rounded-lg bg-slate-100 p-1">
               {tabsDisponiveis.map((t) => (
@@ -1180,91 +1173,50 @@ export function CandidatoDrawer({
           </motion.aside>
         </div>
       )}
-      {vagaResumo ? (
-        <ContratacaoModal
-          open={contratacaoModalOpen}
-          onClose={() => setContratacaoModalOpen(false)}
-          candidato={{ id: candidato.id, nome: candidato.nome }}
-          vaga={vagaResumo}
-        />
-      ) : null}
     </AnimatePresence>
   );
 }
 
 interface ContratacaoSummaryCardProps {
   candidato: CandidatoComAnalises;
-  canEdit: boolean;
-  vagaResumo: VagaResumoParaDrawer | undefined;
-  onAbrirModal: () => void;
 }
 
 function ContratacaoSummaryCard({
   candidato,
-  canEdit,
-  vagaResumo,
-  onAbrirModal,
 }: ContratacaoSummaryCardProps) {
   const c = candidato.contratacao;
 
-  if (c) {
-    const tone = toneGarantia(c.status, c.dataFimGarantia);
-    const dias = diasRestantesGarantia(c.dataFimGarantia);
-    const toneClasses: Record<typeof tone, string> = {
-      lima: "border-lima-200 bg-lima-50 text-lima-700",
-      amber: "border-amber-200 bg-amber-50 text-amber-700",
-      red: "border-red-200 bg-red-50 text-red-700",
-      slate: "border-line bg-slate-50 text-slate-600",
-    };
-    return (
-      <div
-        className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 ${toneClasses[tone]}`}
-      >
-        <ShieldCheck size={18} className="mt-0.5 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
-            Contratação
-          </div>
-          <div className="text-sm font-semibold">
-            {resumoStatusGarantia(c)}
-          </div>
-          <div className="mt-0.5 text-xs opacity-80">
-            Admissão {formatDateBR(c.dataAdmissao)} · Garantia até{" "}
-            {formatDateBR(c.dataFimGarantia)}
-            {c.status === "em_garantia" && dias > 0
-              ? ` (${dias}d)`
-              : ""}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!c) return null;
 
-  const podeMarcar =
-    canEdit &&
-    vagaResumo !== undefined &&
-    (candidato.status === "aprovado" || candidato.status === "shortlist");
-
-  if (!podeMarcar) return null;
-
+  // Mostra apenas o resumo da contratação. O fluxo de "registrar contratação"
+  // e "abrir protocolo" mora no GarantiaCardVaga (no detalhe da vaga) — evita
+  // botões duplicados e mantém o drawer focado em ler o candidato.
+  const tone = toneGarantia(c.status, c.dataFimGarantia);
+  const dias = diasRestantesGarantia(c.dataFimGarantia);
+  const toneClasses: Record<typeof tone, string> = {
+    lima: "border-lima-200 bg-lima-50 text-lima-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    red: "border-red-200 bg-red-50 text-red-700",
+    slate: "border-line bg-slate-50 text-slate-600",
+  };
   return (
-    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-lima-200 bg-lima-50/40 px-4 py-3">
+    <div
+      className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 ${toneClasses[tone]}`}
+    >
+      <ShieldCheck size={18} className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-semibold uppercase tracking-wide text-lima-700">
-          Pronto pra contratar?
+        <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+          Contratação
         </div>
-        <div className="text-xs text-slate-600">
-          Registre a admissão e a garantia de 30d começa a contar.
+        <div className="text-sm font-semibold">
+          {resumoStatusGarantia(c)}
+        </div>
+        <div className="mt-0.5 text-xs opacity-80">
+          Admissão {formatDateBR(c.dataAdmissao)} · Garantia até{" "}
+          {formatDateBR(c.dataFimGarantia)}
+          {c.status === "em_garantia" && dias > 0 ? ` (${dias}d)` : ""}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onAbrirModal}
-        className="btn-primary shrink-0 text-xs"
-      >
-        <ShieldCheck size={14} />
-        Marcar como contratado
-      </button>
     </div>
   );
 }

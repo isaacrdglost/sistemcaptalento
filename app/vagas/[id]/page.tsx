@@ -16,9 +16,15 @@ import { CandidatoList } from "@/components/CandidatoList";
 import { VagaInfoForm } from "@/components/VagaInfoForm";
 import { VagaTimeline } from "@/components/VagaTimeline";
 import { Avatar } from "@/components/ui/Avatar";
+import {
+  GarantiaCardVaga,
+  type GarantiaCardCandidatoOption,
+  type GarantiaCardContratacao,
+} from "@/components/GarantiaCardVaga";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { computeVagaDerived, fluxoLabel, prazoCor } from "@/lib/flows";
+import { aplicarVencimentosGarantia } from "@/lib/garantia";
 import {
   formatDateBR,
   formatDiasRestantes,
@@ -126,6 +132,64 @@ export default async function VagaDetailPage({ params }: PageProps) {
 
   const totalAlertas = derived.alertas.length;
   const tituloCurto = vaga.titulo.length <= 60;
+
+  // Lazy update: garantias vencidas viram garantia_ok no load
+  await aplicarVencimentosGarantia();
+
+  // Dados pra GarantiaCardVaga (só renderizado quando vaga.temGarantia=true)
+  const contratacaoExistente = vaga.candidatos.find((c) => c.contratacao);
+  const garantiaContratacao: GarantiaCardContratacao | null =
+    contratacaoExistente?.contratacao
+      ? {
+          id: contratacaoExistente.contratacao.id,
+          status: contratacaoExistente.contratacao.status,
+          dataAdmissao: contratacaoExistente.contratacao.dataAdmissao,
+          dataFimGarantia: contratacaoExistente.contratacao.dataFimGarantia,
+          dataSaida: null,
+          saidaDentroGarantia: null,
+          reposicaoVagaId: null,
+          candidatoId: contratacaoExistente.id,
+          candidatoNome: contratacaoExistente.nome,
+        }
+      : null;
+
+  // Se houver contratação, busca dados extras necessários pra reposição
+  let garantiaContratacaoCompleta: GarantiaCardContratacao | null = garantiaContratacao;
+  if (garantiaContratacao) {
+    const ct = await prisma.contratacao.findUnique({
+      where: { id: garantiaContratacao.id },
+      select: {
+        dataSaida: true,
+        saidaDentroGarantia: true,
+        reposicaoVagaId: true,
+      },
+    });
+    if (ct) {
+      garantiaContratacaoCompleta = {
+        ...garantiaContratacao,
+        dataSaida: ct.dataSaida,
+        saidaDentroGarantia: ct.saidaDentroGarantia,
+        reposicaoVagaId: ct.reposicaoVagaId,
+      };
+    }
+  }
+
+  const candidatosContrataveis: GarantiaCardCandidatoOption[] = vaga.candidatos
+    .filter(
+      (c) =>
+        !c.contratacao &&
+        (c.status === "shortlist" || c.status === "aprovado"),
+    )
+    .map((c) => ({ id: c.id, nome: c.nome, status: c.status }));
+
+  const candidatosReposicaoMesmaVaga: GarantiaCardCandidatoOption[] = vaga.candidatos
+    .filter(
+      (c) =>
+        !c.contratacao &&
+        c.id !== garantiaContratacao?.candidatoId &&
+        c.status !== "reprovado",
+    )
+    .map((c) => ({ id: c.id, nome: c.nome, status: c.status }));
 
   return (
     <AppShell
@@ -303,6 +367,30 @@ export default async function VagaDetailPage({ params }: PageProps) {
               className="animate-fade-in-up"
               style={{ animationDelay: "120ms" }}
             >
+              {vaga.temGarantia ? (
+                <div
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: "100ms" }}
+                >
+                  <GarantiaCardVaga
+                    vagaId={vaga.id}
+                    vagaTitulo={vaga.titulo}
+                    vagaModelo={vaga.modelo}
+                    vagaSalarioMin={
+                      vaga.salarioMin ? Number(vaga.salarioMin) : null
+                    }
+                    vagaSalarioMax={
+                      vaga.salarioMax ? Number(vaga.salarioMax) : null
+                    }
+                    dataShortlistEntregue={vaga.dataShortlistEntregue}
+                    candidatosContrataveis={candidatosContrataveis}
+                    candidatosReposicaoMesmaVaga={candidatosReposicaoMesmaVaga}
+                    contratacao={garantiaContratacaoCompleta}
+                    canEdit={canEdit}
+                  />
+                </div>
+              ) : null}
+
               <CandidatoList
                 vagaId={vaga.id}
                 candidatos={vaga.candidatos}

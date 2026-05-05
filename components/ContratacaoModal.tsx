@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { registrarContratacao } from "@/app/contratacoes/actions";
+import { sugerirDataAdmissao } from "@/lib/garantia";
 
 type Modelo = "presencial" | "hibrido" | "remoto";
 
@@ -28,6 +29,7 @@ interface ContratacaoModalProps {
     modelo: Modelo | null;
     salarioMin: number | null;
     salarioMax: number | null;
+    dataShortlistEntregue?: Date | null;
   };
 }
 
@@ -37,11 +39,10 @@ const MODELO_OPTIONS = [
   { value: "remoto", label: "Remoto" },
 ];
 
-function todayLocalISODate(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
+function toLocalISODate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
@@ -71,7 +72,9 @@ export function ContratacaoModal({
   const [, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
 
-  const [dataAdmissao, setDataAdmissao] = useState(todayLocalISODate());
+  const [dataAdmissao, setDataAdmissao] = useState(() =>
+    toLocalISODate(sugerirDataAdmissao(vaga.dataShortlistEntregue ?? null)),
+  );
   const [cargoSnapshot, setCargoSnapshot] = useState(vaga.titulo);
   const [salarioSnapshot, setSalarioSnapshot] = useState(
     formatSalarioPadrao(vaga.salarioMin, vaga.salarioMax),
@@ -90,7 +93,9 @@ export function ContratacaoModal({
   // Reset state quando reabrir
   useEffect(() => {
     if (!open) return;
-    setDataAdmissao(todayLocalISODate());
+    setDataAdmissao(
+      toLocalISODate(sugerirDataAdmissao(vaga.dataShortlistEntregue ?? null)),
+    );
     setCargoSnapshot(vaga.titulo);
     setSalarioSnapshot(formatSalarioPadrao(vaga.salarioMin, vaga.salarioMax));
     setModeloSnapshot(vaga.modelo ?? "presencial");
@@ -100,7 +105,14 @@ export function ContratacaoModal({
     setEvidenciaNome(null);
     setUploading(false);
     setSubmitting(false);
-  }, [open, vaga.titulo, vaga.modelo, vaga.salarioMin, vaga.salarioMax]);
+  }, [
+    open,
+    vaga.titulo,
+    vaga.modelo,
+    vaga.salarioMin,
+    vaga.salarioMax,
+    vaga.dataShortlistEntregue,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -251,7 +263,10 @@ export function ContratacaoModal({
                   className="input"
                 />
                 <p className="mt-1 text-xs text-slate-500">
-                  Garantia de 30 dias corridos a partir desta data.
+                  {vaga.dataShortlistEntregue
+                    ? "Sugerido: shortlist + 7 dias. Edite livremente."
+                    : "Edite com a data efetiva da admissão."}{" "}
+                  Garantia de 30d corridos começa daqui.
                 </p>
               </div>
 

@@ -70,6 +70,7 @@ const atualizarVagaSchema = z.object({
   salarioMin: z.number().nullable().optional(),
   salarioMax: z.number().nullable().optional(),
   area: z.string().max(100).nullable().optional(),
+  temGarantia: z.boolean().optional(),
 });
 
 const urlOrNull = z
@@ -546,6 +547,7 @@ export async function atualizarVaga(
     salarioMin: number | null;
     salarioMax: number | null;
     area: string | null;
+    temGarantia?: boolean;
   } = {
     titulo: parsed.data.titulo,
     cliente: cliente.razaoSocial,
@@ -561,6 +563,9 @@ export async function atualizarVaga(
     salarioMax: parsed.data.salarioMax ?? null,
     area: parsed.data.area ?? null,
   };
+  if (typeof parsed.data.temGarantia === "boolean") {
+    updateData.temGarantia = parsed.data.temGarantia;
+  }
 
   // Recrutador não pode enviar recrutadorId — ignoramos no servidor mesmo
   // se o cliente mandar (defesa contra client tampering).

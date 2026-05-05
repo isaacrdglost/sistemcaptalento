@@ -227,6 +227,10 @@ model Vaga {
   dataShortlistInterna      DateTime?
   encerrada                 Boolean   @default(false)
   dataEncerramento          DateTime?
+  /// Quando true, a vaga participa do fluxo de garantia de reposição:
+  /// permite registrar contratação, abrir protocolo se o profissional
+  /// sair, e escolher um substituto da mesma shortlist.
+  temGarantia               Boolean   @default(false)
   createdAt                 DateTime  @default(now())
 
   // Atributos de apresentação/filtro (novos no upgrade)
@@ -468,6 +472,10 @@ model Contratacao {
   /// URL @vercel/blob com print/PDF do cliente confirmando a admissão.
   /// Não-obrigatório, mas é a prova ouro caso a data seja contestada.
   admissaoEvidenciaUrl String?
+
+  /// URLs de provas/anexos do protocolo de reposição (emails, prints,
+  /// documentos do cliente). Múltiplos arquivos.
+  evidenciasUrls       String[]   @default([])
 
   // Snapshot dos termos no fechamento — base de comparação se a garantia
   // for acionada e a defesa do cliente alegar "mudança de escopo".

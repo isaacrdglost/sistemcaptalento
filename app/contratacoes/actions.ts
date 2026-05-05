@@ -79,7 +79,14 @@ export async function registrarContratacao(
   const candidato = await prisma.candidato.findUnique({
     where: { id: data.candidatoId },
     include: {
-      vaga: { select: { id: true, clienteId: true, recrutadorId: true } },
+      vaga: {
+        select: {
+          id: true,
+          clienteId: true,
+          recrutadorId: true,
+          temGarantia: true,
+        },
+      },
       contratacao: { select: { id: true } },
     },
   });
@@ -96,6 +103,13 @@ export async function registrarContratacao(
       ok: false,
       error:
         "A vaga não está vinculada a um Cliente. Vincule antes de registrar a contratação.",
+    };
+  }
+  if (!candidato.vaga.temGarantia) {
+    return {
+      ok: false,
+      error:
+        "Esta vaga foi criada sem garantia de reposição. Edite a vaga e ative a garantia antes de registrar a contratação.",
     };
   }
 
@@ -189,7 +203,7 @@ const motivoSaidaEnum = z.enum([
   "outro",
 ]);
 
-const acionarSchema = z.object({
+const protocoloSchema = z.object({
   contratacaoId: z.string().min(1),
   dataSaida: z.coerce.date(),
   motivoSaida: motivoSaidaEnum,
@@ -200,6 +214,131 @@ const acionarSchema = z.object({
     .optional()
     .transform((v) => (v && v.trim().length > 0 ? v.trim() : null)),
   /** Checklist das 3 exclusões da proposta — boolean + evidência opcional. */
+  exclusoes: z
+    .object({
+      mudancaEscopo: z.boolean(),
+      mudancaEscopoEvidencia: z.string().max(2000).optional(),
+      reestruturacao: z.boolean(),
+      reestruturacaoEvidencia: z.string().max(2000).optional(),
+      falhaOnboarding: z.boolean(),
+      falhaOnboardingEvidencia: z.string().max(2000).optional(),
+    })
+    .optional(),
+  /** URLs dos anexos (uploads do @vercel/blob via /api/upload-evidencia). */
+  evidenciasUrls: z.array(z.string().url().max(500)).max(20).optional(),
+  /** Decisão da triagem feita junto com a abertura. */
+  dentroGarantia: z.boolean(),
+  justificativa: z
+    .string()
+    .min(5, "Justifique a decisão (mín. 5 caracteres)")
+    .max(2000),
+});
+
+export type AbrirProtocoloInput = z.input<typeof protocoloSchema>;
+
+/**
+ * Abre o protocolo formal de reposição: registra saída + checklist
+ * de exclusões + provas + decisão dentro/fora num único passo.
+ *
+ * Substitui o fluxo antigo de duas etapas (`acionarGarantia` +
+ * `triarGarantia`) — o operador já formaliza o caso completo no momento.
+ */
+export async function abrirProtocoloReposicao(
+  input: AbrirProtocoloInput,
+): Promise<ActionResult> {
+  const session = await requireOperacional();
+  const parsed = protocoloSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+    };
+  }
+  const data = parsed.data;
+
+  const c = await prisma.contratacao.findUnique({
+    where: { id: data.contratacaoId },
+    include: {
+      candidato: { select: { nome: true } },
+      vaga: { select: { id: true } },
+    },
+  });
+  if (!c) return { ok: false, error: "Contratação não encontrada." };
+  if (
+    c.status !== "em_garantia" &&
+    c.status !== "garantia_ok" &&
+    c.status !== "garantia_acionada"
+  ) {
+    return {
+      ok: false,
+      error:
+        "Protocolo só pode ser aberto em contratação em garantia, recém-finalizada ou já acionada.",
+    };
+  }
+  if (data.dataSaida < c.dataAdmissao) {
+    return {
+      ok: false,
+      error: "A data de saída não pode ser anterior à admissão.",
+    };
+  }
+
+  await prisma.contratacao.update({
+    where: { id: c.id },
+    data: {
+      status: "garantia_acionada",
+      dataSaida: data.dataSaida,
+      motivoSaida: data.motivoSaida,
+      motivoSaidaDetalhe: data.motivoSaidaDetalhe,
+      exclusoesAvaliadas: data.exclusoes
+        ? (data.exclusoes as Prisma.InputJsonValue)
+        : Prisma.JsonNull,
+      evidenciasUrls: data.evidenciasUrls ?? [],
+      saidaDentroGarantia: data.dentroGarantia,
+      saidaDentroGarantiaJustif: data.justificativa,
+      triadoPorId: session.user.id,
+      triadoEm: new Date(),
+      // Se for FORA, encerra direto. Se DENTRO, mantém acionada
+      // aguardando escolha do substituto via concluirReposicao.
+      ...(data.dentroGarantia ? {} : { status: "encerrado" as const }),
+    },
+  });
+
+  await logActivity({
+    vagaId: c.vaga.id,
+    autorId: session.user.id,
+    tipo: data.dentroGarantia ? "garantia_acionada" : "garantia_triada",
+    descricao: data.dentroGarantia
+      ? `Protocolo aberto e triado DENTRO da garantia — ${c.candidato.nome}`
+      : `Protocolo aberto e triado FORA da garantia — ${c.candidato.nome}`,
+    metadata: {
+      contratacaoId: c.id,
+      motivoSaida: data.motivoSaida,
+      dataSaida: data.dataSaida.toISOString(),
+      dentroGarantia: data.dentroGarantia,
+      exclusoes: data.exclusoes ?? null,
+    },
+  });
+
+  revalidatePath(`/vagas/${c.vaga.id}`);
+  revalidatePath("/contratacoes");
+  revalidatePath(`/contratacoes/${c.id}`);
+  revalidatePath("/dashboard");
+
+  return { ok: true };
+}
+
+// Mantido por compatibilidade — usado pelos modais antigos. Será removido
+// após a migração completa pra abrirProtocoloReposicao.
+const acionarSchema = z.object({
+  contratacaoId: z.string().min(1),
+  dataSaida: z.coerce.date(),
+  motivoSaida: motivoSaidaEnum,
+  motivoSaidaDetalhe: z
+    .string()
+    .max(2000)
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.trim().length > 0 ? v.trim() : null)),
   exclusoes: z
     .object({
       mudancaEscopo: z.boolean(),
@@ -445,13 +584,19 @@ export async function concluirReposicao(
   const c = await prisma.contratacao.findUnique({
     where: { id: data.contratacaoId },
     include: {
-      candidato: { select: { nome: true } },
+      candidato: { select: { nome: true, id: true } },
       vaga: { select: { id: true } },
     },
   });
   if (!c) return { ok: false, error: "Contratação não encontrada." };
-  if (!c.reposicaoVagaId) {
-    return { ok: false, error: "Nenhuma vaga de reposição aberta." };
+  if (
+    c.status !== "garantia_acionada" ||
+    c.saidaDentroGarantia !== true
+  ) {
+    return {
+      ok: false,
+      error: "Reposição só pode ser concluída em protocolos triados DENTRO da garantia.",
+    };
   }
 
   const candidatoNovo = await prisma.candidato.findUnique({
@@ -461,10 +606,23 @@ export async function concluirReposicao(
   if (!candidatoNovo) {
     return { ok: false, error: "Candidato de reposição não encontrado." };
   }
-  if (candidatoNovo.vagaId !== c.reposicaoVagaId) {
+  if (candidatoNovo.id === c.candidato.id) {
     return {
       ok: false,
-      error: "O candidato precisa estar associado à vaga de reposição.",
+      error: "O substituto não pode ser o mesmo candidato que saiu.",
+    };
+  }
+  // Aceita candidato da MESMA vaga (recurso à shortlist original) ou
+  // de uma VAGA NOVA aberta como reposição (criada via criarReposicaoVaga).
+  const vagaPermitida =
+    candidatoNovo.vagaId === c.vaga.id ||
+    (c.reposicaoVagaId !== null &&
+      candidatoNovo.vagaId === c.reposicaoVagaId);
+  if (!vagaPermitida) {
+    return {
+      ok: false,
+      error:
+        "O substituto precisa ser candidato da mesma vaga ou da vaga de reposição.",
     };
   }
 
@@ -478,7 +636,8 @@ export async function concluirReposicao(
   });
 
   await logActivity({
-    vagaId: c.reposicaoVagaId,
+    // Loga na vaga de reposição se houver, senão na vaga original.
+    vagaId: c.reposicaoVagaId ?? c.vaga.id,
     autorId: session.user.id,
     tipo: "reposicao_concluida",
     descricao: `Reposição concluída — ${candidatoNovo.nome} cobre a saída de ${c.candidato.nome}`,

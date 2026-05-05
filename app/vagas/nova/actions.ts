@@ -15,6 +15,7 @@ const schema = z.object({
   dataPrazo: z.string().optional(),
   fluxo: z.enum(["padrao", "rapido"]).default("padrao"),
   recrutadorId: z.string().optional(),
+  temGarantia: z.boolean().optional().default(false),
 });
 
 export type CriarVagaInput = z.input<typeof schema>;
@@ -102,6 +103,7 @@ export async function criarVaga(
         dataBriefing,
         dataPrazo,
         fluxo: data.fluxo,
+        temGarantia: data.temGarantia,
         recrutadorId,
       },
       select: { id: true },

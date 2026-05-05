@@ -8,6 +8,7 @@ import { getFluxoSpec } from "@/lib/flows";
 import type { AppRole } from "@/lib/auth";
 import type { Fluxo } from "@prisma/client";
 import { Select } from "@/components/ui/Select";
+import { GarantiaToggle } from "./GarantiaToggle";
 
 interface NovaVagaFormProps {
   recrutadores: { id: string; nome: string }[];
@@ -44,6 +45,7 @@ export function NovaVagaForm({
   const [dataBriefing, setDataBriefing] = useState<string>(todayISO());
   const [dataPrazo, setDataPrazo] = useState<string>("");
   const [fluxo, setFluxo] = useState<Fluxo>("padrao");
+  const [temGarantia, setTemGarantia] = useState<boolean>(false);
   const [recrutadorId, setRecrutadorId] = useState<string>(
     currentUser.role === "recruiter" ? currentUser.id : "",
   );
@@ -79,6 +81,7 @@ export function NovaVagaForm({
         dataBriefing,
         dataPrazo: dataPrazo ? dataPrazo : undefined,
         fluxo,
+        temGarantia,
         recrutadorId:
           currentUser.role === "admin" ? recrutadorId : undefined,
       });
@@ -245,6 +248,11 @@ export function NovaVagaForm({
           </ul>
         </div>
       </div>
+
+      <GarantiaToggle
+        value={temGarantia}
+        onChange={setTemGarantia}
+      />
 
       <div>
         <label htmlFor="dataPrazo" className="label">

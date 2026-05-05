@@ -12,7 +12,6 @@ import {
 import { AppShell } from "@/components/shell/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
-import { ContratacaoActions } from "@/components/ContratacaoActions";
 import { CheckInsCard, type CheckInItem } from "@/components/CheckInsCard";
 import { TermoButton } from "@/components/TermoButton";
 import { prisma } from "@/lib/prisma";
@@ -85,15 +84,6 @@ export default async function ContratacaoDetailPage({ params }: PageProps) {
 
   if (!c) notFound();
   if (!isAdmin && c.recrutadoraId !== session.user.id) notFound();
-
-  // Candidatos na vaga de reposição (pra dropdown de "concluir reposição")
-  const candidatosNaReposicao = c.reposicaoVagaId
-    ? await prisma.candidato.findMany({
-        where: { vagaId: c.reposicaoVagaId },
-        select: { id: true, nome: true, status: true },
-        orderBy: { nome: "asc" },
-      })
-    : [];
 
   const checkIns: CheckInItem[] = c.checkIns.map((ci) => ({
     id: ci.id,
@@ -171,15 +161,22 @@ export default async function ContratacaoDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        <ContratacaoActions
-          contratacaoId={c.id}
-          status={c.status}
-          candidatoNome={c.candidato.nome}
-          dataAdmissao={c.dataAdmissao}
-          saidaDentroGarantia={c.saidaDentroGarantia}
-          reposicaoVagaId={c.reposicaoVagaId}
-          candidatosNaReposicao={candidatosNaReposicao}
-        />
+        <div className="flex items-start gap-2 rounded-xl border border-line bg-slate-50/40 p-3 text-xs text-slate-600">
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+            Auditoria
+          </span>
+          <span>
+            Esta página é o histórico do protocolo. As ações (registrar
+            contratação, abrir protocolo, concluir reposição) acontecem no{" "}
+            <Link
+              href={`/vagas/${c.vaga.id}`}
+              className="font-semibold text-royal hover:underline"
+            >
+              detalhe da vaga
+            </Link>
+            .
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">

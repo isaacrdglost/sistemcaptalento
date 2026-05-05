@@ -2,6 +2,21 @@ import type { StatusContratacao } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const DIAS_GARANTIA = 30;
+export const DIAS_DEFAULT_ADMISSAO_APOS_SHORTLIST = 7;
+
+/**
+ * Sugere uma data de admissão default a partir da shortlist entregue.
+ * Heurística: cliente costuma fechar contratação ~7 dias após receber
+ * a shortlist. Quando não há shortlist registrada, retorna hoje.
+ */
+export function sugerirDataAdmissao(
+  dataShortlistEntregue: Date | null | undefined,
+): Date {
+  if (!dataShortlistEntregue) return new Date();
+  const d = new Date(dataShortlistEntregue);
+  d.setDate(d.getDate() + DIAS_DEFAULT_ADMISSAO_APOS_SHORTLIST);
+  return d;
+}
 
 /**
  * Calcula `dataFimGarantia` a partir da `dataAdmissao`.
